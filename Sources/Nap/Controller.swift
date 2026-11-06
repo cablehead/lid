@@ -210,7 +210,7 @@ final class Controller: NSObject, ObservableObject, NSMenuDelegate {
         confirm.accessoryView = Self.codeView(contents)
         confirm.addButton(withTitle: "Continue")
         confirm.addButton(withTitle: "Cancel")
-        NSApp.activate()
+        NSApp.activate(ignoringOtherApps: true)
         guard confirm.runModal() == .alertFirstButtonReturn else { return }
         if let error = Shell.admin(script, prompt: "Nap wants to add \(Sudoers.path).") {
             alert("Not installed. \(error)")
@@ -232,7 +232,7 @@ final class Controller: NSObject, ObservableObject, NSMenuDelegate {
         let a = NSAlert()
         a.messageText = "Nap"
         a.informativeText = text
-        NSApp.activate()
+        NSApp.activate(ignoringOtherApps: true)
         a.runModal()
     }
 
@@ -360,7 +360,11 @@ final class Controller: NSObject, ObservableObject, NSMenuDelegate {
             w.center()
             window = w
         }
-        NSApp.activate()
+        // A menu bar app is not active when its menu is used, and macOS 14's
+        // cooperative activate() may be refused: the window then opened
+        // behind every other. Take activation, and order it front anyway.
+        NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
     }
 }
