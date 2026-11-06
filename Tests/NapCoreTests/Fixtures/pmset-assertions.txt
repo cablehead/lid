@@ -1,0 +1,30 @@
+2026-11-06 10:09:52 -0500 
+Assertion status system-wide:
+   BackgroundTask                 0
+   ApplePushServiceTask           0
+   UserIsActive                   1
+   PreventUserIdleDisplaySleep    0
+   InteractivePushServiceTask     1
+   SoftwareUpdateTask             0
+   PreventSystemSleep             0
+   PreventSystemSleepSecurityIndicator 0
+   ExternalMedia                  0
+   PreventUserIdleSystemSleep     1
+   NetworkClientActive            0
+Listed by owning process:
+   pid 611(runningboardd): [0x00007118000180ba] 00:00:00 PreventUserIdleSystemSleep named: "osservice<com.apple.dataaccess.dataaccessd(501)>611-1219-25945:com.apple.CFNetwork.StorageDB"  
+	Created for PID: 1219. 
+   pid 577(apsd): [0x00007117001280b9] 00:00:00 InteractivePushServiceTask named: "com.apple.apsd-lastpowerassertionlinger"  
+	Timeout will fire in 1 secs Action=<unknown action>
+   pid 916(mds_stores): [0x00007117000b80b7] 00:00:00 BackgroundTask named: "com.apple.metadata.mds_stores.power"  
+   pid 964(sharingd): [0x00006ae90001a67f] 00:26:23 PreventUserIdleSystemSleep named: "Handoff"  
+   pid 549(powerd): [0x000063cf0001a522] 00:56:41 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"  
+   pid 549(powerd): [0x00003d8b00099579] 00:56:41 UserIsActive named: "com.apple.powermanagement.lidopen"  
+   pid 549(powerd): [0x0000005600098009] 20:27:47 UserIsActive named: "com.apple.powerd.ws.initialize"  
+   pid 28339(caffeinate): [0x0000704a00018089] 00:03:26 PreventUserIdleSystemSleep named: "caffeinate command-line tool"  
+	Details: caffeinate asserting for 300 secs
+	Localized=THE CAFFEINATE TOOL IS PREVENTING SLEEP.
+	Timeout will fire in 94 secs Action=TimeoutActionRelease
+   pid 606(WindowServer): [0x00000076000981ad] 00:00:00 UserIsActive named: "com.apple.iohideventsystem.queue.tickle serviceID:100004192 service:AppleMultitouchDevice product:Apple Internal Keyboard / Trackpad eventType:11"  
+Kernel Assertions: 0x100=MAGICWAKE
+   id=585  level=255 0x100=MAGICWAKE creat=  mod= description=en0 owner=IOSkywalkNetworkBSDClient
