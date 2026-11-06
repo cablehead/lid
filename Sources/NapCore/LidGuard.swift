@@ -182,7 +182,7 @@ public struct LidGuard: Equatable, Sendable {
     public func status(now: Date) -> String {
         switch phase {
         case .off:
-            return "Lid timer off"
+            return "Off: closing the lid puts the Mac to sleep at once, as usual"
         case .armed:
             return "Armed: lid closed on battery stays awake \(Explain.minutes(Int(duration / 60)))"
         case .counting(let deadline):
