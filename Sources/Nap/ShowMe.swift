@@ -49,8 +49,11 @@ struct ShowMe: View {
 
             let awake = Table.awakeLines(controller.assertions)
             if !awake.isEmpty {
-                Text("Keeping it awake right now: " + awake.joined(separator: " · "))
-                    .font(.caption).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Also keeping the Mac awake right now:")
+                    ForEach(awake, id: \.self) { Text("· " + $0) }
+                }
+                .font(.caption).foregroundStyle(.secondary)
             }
 
             if let message = controller.message {

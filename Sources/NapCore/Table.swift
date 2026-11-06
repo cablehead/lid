@@ -90,19 +90,38 @@ public enum Table {
         return ["Closed \(f.string(from: closedAt)) → \(then)", early]
     }
 
-    /// Apps keeping the Mac awake right now. powerd's own assertions (display
-    /// on, lid open) are left out: the table already says what they do.
+    /// What is keeping the Mac awake right now, in plain words. powerd's own
+    /// assertions (display on, lid open) are left out: the table already says
+    /// what they do. A known macOS service is named for what it is doing; any
+    /// other process by its own name and the reason it gives.
     public static func awakeLines(_ assertions: Assertions) -> [String] {
         assertions.keepingAwake.filter { $0.process != "powerd" }.map { a in
-            if let secs = a.timeoutSeconds {
-                return "\(a.process), \(minutes(max(1, (secs + 59) / 60))) left"
-            }
+            let left = a.timeoutSeconds.map { ", \(minutes(max(1, ($0 + 59) / 60))) left" } ?? ""
             var name = a.name
             if let m = name.firstMatch(of: /^osservice<([^(>]+)/) {
                 name = String(m.1.split(separator: ".").last ?? m.1)
             }
+            if let plain = plainWords(process: a.process, name: name) { return plain + left }
             if name.count > 30 { name = name.prefix(29) + "…" }
-            return name.isEmpty || name == a.process ? a.process : "\(a.process) (\(name))"
+            let why = name.isEmpty || name == a.process ? "" : ", for \"\(name)\""
+            return "\(a.process) (an app or service\(why))\(left)"
+        }
+    }
+
+    /// macOS services seen holding the Mac awake, said as what they are doing.
+    static func plainWords(process: String, name: String) -> String? {
+        switch process {
+        case "sharingd" where name.localizedCaseInsensitiveContains("handoff"):
+            "Handoff: passing work between this Mac and a nearby iPhone or iPad"
+        case "sharingd": "AirDrop or Handoff with a nearby device"
+        case "caffeinate": "a caffeinate command, run from a terminal or by an app"
+        case "runningboardd" where name == "dataaccessd": "Mail, Calendar and Contacts syncing"
+        case "coreaudiod": "sound playing"
+        case "backupd": "a Time Machine backup"
+        case "mds", "mds_stores", "mdworker": "Spotlight indexing"
+        case "softwareupdated": "a software update"
+        case "bluetoothd": "a Bluetooth device"
+        default: nil
         }
     }
 }

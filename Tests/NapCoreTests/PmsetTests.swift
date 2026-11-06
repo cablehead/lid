@@ -100,9 +100,9 @@ import Foundation
     @Test func awakeLinesFromThisMac() {
         let a = Assertions.parse(Fixture.text("pmset-assertions"))
         #expect(Table.awakeLines(a) == [
-            "runningboardd (dataaccessd)",
-            "sharingd (Handoff)",
-            "caffeinate, 2 min left",
+            "Mail, Calendar and Contacts syncing",
+            "Handoff: passing work between this Mac and a nearby iPhone or iPad",
+            "a caffeinate command, run from a terminal or by an app, 2 min left",
         ])
         #expect(Table.awakeLines(Assertions()) == [])
     }
