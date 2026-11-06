@@ -110,6 +110,11 @@ public struct Assertions: Equatable, Sendable {
     public var systemWide: [String: Int]
     public var byProcess: [Assertion]
 
+    public init(systemWide: [String: Int] = [:], byProcess: [Assertion] = []) {
+        self.systemWide = systemWide
+        self.byProcess = byProcess
+    }
+
     /// Types that keep the system (not only the display) awake.
     public static let keepAwakeTypes: Set<String> = [
         "PreventUserIdleSystemSleep", "PreventSystemSleep",

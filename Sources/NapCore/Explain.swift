@@ -36,7 +36,7 @@ public enum Explain {
         let present = PowerSource.allCases.filter { settings.sources[$0] != nil }
         let texts = present.map { idle(settings.sources[$0]!) }
         if present.count > 1, Set(texts).count == 1 {
-            let names = present.map(\.label)
+            let names = present.enumerated().map { i, source in i == 0 ? source.label : source.label.lowercased() }
             lines.append(names.joined(separator: " and ") + ": " + texts[0])
         } else {
             for (source, text) in zip(present, texts) {

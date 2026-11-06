@@ -51,7 +51,7 @@ import Foundation
     @Test func explainsThisMacHonestly() {
         let settings = PowerSettings.parse(custom: Fixture.text("pmset-custom"), systemWide: Fixture.text("pmset-g"))
         #expect(Explain.sentences(settings) == [
-            "Plugged in and On battery: the Mac sleeps after 1 minute idle, but never while the display is on "
+            "Plugged in and on battery: the Mac sleeps after 1 minute idle, but never while the display is on "
                 + "(the display never turns off), so in practice it never idle-sleeps with the lid open.",
             "Lid closed: sleeps at once (unless an external display is connected).",
         ])

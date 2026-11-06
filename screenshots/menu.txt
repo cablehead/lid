@@ -1,0 +1,18 @@
+Lid timer off
+Lid Closed: Stay Awake for 60 Minutes
+Stay Awake For
+    15 Minutes
+    30 Minutes
+    [x] 60 Minutes
+    90 Minutes
+    120 Minutes
+Sleep Early Under
+    10% Battery
+    [x] 15% Battery
+    20% Battery
+    30% Battery
+----
+Show Me…
+Allow Nap to Change Sleep…
+----
+Quit Nap
