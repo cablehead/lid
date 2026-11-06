@@ -255,8 +255,12 @@ final class Controller: NSObject, ObservableObject {
             view.layoutSubtreeIfNeeded()
             window?.setContentSize(view.fittingSize)
         }
-        NSApp.activate()
+        // A menu bar app is not active when its menu is used, and macOS 14's
+        // cooperative activate() may be refused: the window then opened
+        // behind every other. Take activation, and order it front anyway.
+        NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
     }
 
     /// Renders the window, and the choices of one lid-closed cell, as PNGs in
