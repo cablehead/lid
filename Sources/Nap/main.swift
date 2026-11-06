@@ -2,7 +2,7 @@ import AppKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let controller = Controller()
+    let controller = Controller(readOnly: CommandLine.arguments.contains("--snapshot"))
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         controller.start()
@@ -11,13 +11,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
             controller.snapshot(into: args[i + 1])
         }
-        if args.contains("--menu") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.controller.openMenu() }
-        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // Always put sleep back on quit when armed.
+        // Put sleep back if Nap holds it off.
         controller.quit()
     }
 

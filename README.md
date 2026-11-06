@@ -1,50 +1,58 @@
 # Nap
 
-A small macOS menu bar app that:
+A small macOS menu bar app with one window, Show Me: a table of what your Mac does about sleep.
 
-1. Shows what your sleep settings do, in plain sentences (from `pmset -g custom`), and what is keeping the Mac awake right now (from `pmset -g assertions`).
-2. Shows how to change them: a few goals, each with the exact setting and command, and an Apply button that uses the standard macOS admin prompt. Nap never sees or stores your password.
-3. Keeps the Mac awake with the lid closed on battery for a set time (default 60 minutes), then puts it to sleep.
+|            | lid open                        | lid closed                       |
+|------------|---------------------------------|----------------------------------|
+| plugged in | e.g. never sleeps (display on)  | e.g. sleeps at once              |
+| on battery | e.g. sleeps after 10 min idle   | e.g. stays awake 60 min, then sleeps |
+
+Each cell is read from `pmset -g custom` (and Nap's own lid rules). Cells that differ from macOS's default are marked. Click a cell for its choices:
+
+- Lid open: never sleep when idle, or sleep after N min idle. Shows the command (`sudo pmset -c sleep 0`, `sudo pmset -b displaysleep 10 sleep 10`, ...) and applies it through the standard macOS admin prompt. Nap never sees or stores your password.
+- Lid closed: sleep at once (macOS default), or stay awake N min then sleep. Plugged in also offers stay awake with no limit. Each power source has its own rule.
+
+Below the table, only when it applies: the countdown ("Closed 14:02 → sleeps 15:02") and apps keeping the Mac awake right now.
+
+The menu has Show Me… and Quit Nap. The icon shows the state.
 
 ## Build and run
 
 ```sh
-swift test               # unit tests
+swift test
 swift build -c release
-.build/release/Nap       # moon icon appears in the menu bar
+.build/release/Nap
 ```
 
-Menu: Show Me… opens the window. Quit Nap quits (and turns sleep back on if the lid timer was armed).
+## How the lid rules work
 
-## The lid timer
+macOS sleeps the moment the lid closes unless `pmset -a disablesleep 1` is already set. So:
 
-macOS sleeps the moment the lid closes, unless `pmset -a disablesleep 1` was set before. So:
+- Lid open: Nap holds `disablesleep 1` only while the current power source's lid-closed rule is to stay awake.
+- Lid closed: the current source's rule applies, counted from when the lid closed. If the power source changes, the new source's rule takes over (still counted from the close); if its time is already up, or its rule is sleep at once, the Mac sleeps.
+- Hot (thermal state serious or critical), or on battery under 15%, with the lid closed: sleep now.
+- Sleep means `disablesleep 0`, then `pmset sleepnow`. When the lid opens again, the rule is held again.
+- Quit: `disablesleep 0` if Nap set it. If Nap was killed while holding it, it puts it back at the next launch.
 
-- Arming sets `disablesleep 1`.
-- Lid closed on battery: the countdown starts. Lid opened: it is cancelled; the next close gets the full time again.
-- Lid closed and plugged in: stays awake, countdown paused. Unplugging resumes it with the time left.
-- Time up, Mac hot (thermal state serious or critical), or battery under the floor (default 15%) while the lid is closed: `disablesleep 0`, then `pmset sleepnow`. Nap stays armed and sets `disablesleep 1` again the next time the lid opens.
-- Disarm or quit: `disablesleep 0`, always. If Nap was killed while armed, it turns sleep back on at its next launch.
-
-Nap listens for events (lid, power source, battery, heat). It does not poll.
+Nap listens for events (lid, power source, battery, heat). It does not poll. The window refreshes when it opens or comes to the front, and on lid and power changes.
 
 ## One-time permission
 
-The lid timer runs `pmset` as root without asking for a password (a prompt in a bag helps nobody). Menu: **Allow Nap to Change Sleep…** shows this file, then the admin prompt writes it to `/etc/sudoers.d/nap` (your user name in place of `you`):
+The lid rules run `pmset` as root without a password (a prompt in a bag helps nobody). The first time you pick a stay-awake lid option, the cell shows this file and an Allow… button; the admin prompt writes it to `/etc/sudoers.d/nap` (your user name in place of `you`):
 
 ```
 # Written by Nap. Lets you run only these commands as root, without a password.
 you ALL = (root) NOPASSWD: /usr/bin/pmset -a disablesleep 0, /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset sleepnow
 ```
 
-It is written under a temporary name sudo ignores, owned by root, mode 0440, checked with `visudo -cf`, and only then moved into place. Nap then runs `sudo -n /usr/bin/pmset ...`; `-n` means it fails rather than asks. If it fails, Nap says so and does not arm.
+It is written under a name sudo ignores, owned by root, mode 0440, checked with `visudo -cf`, then moved into place. Nap runs `sudo -n /usr/bin/pmset ...`; `-n` fails rather than asks. If it fails, Nap says so and that rule goes back to sleep at once.
 
-**Remove Nap's Permission…** runs `pmset -a disablesleep 0` and deletes the file, through the admin prompt.
+To remove it: `sudo pmset -a disablesleep 0; sudo rm /etc/sudoers.d/nap`.
 
 ## Limits
 
-- While armed, the Mac does not sleep at all, lid open or closed, except when Nap puts it to sleep.
-- Lid-closed behaviour can only be truly tested by closing the lid. Try it first on a desk, with a short duration (15 minutes).
-- Heat: a Mac awake in a closed bag can get hot. Nap stops early at the serious thermal state, but a bag can still trap heat. Use a short time.
-- If Nap is force-killed (`kill -9`) or crashes while armed, sleep stays off until Nap starts again or you run `sudo pmset -a disablesleep 0`.
-- The admin prompt and the sudoers file are only touched when you click; Nap never installs anything on its own.
+- While a stay-awake rule holds sleep off, the Mac does not idle-sleep on that power source either (the cell says so).
+- Lid-closed behaviour can only be tested by closing the lid. Try it on a desk first with a short time.
+- Heat: a Mac awake in a bag can get hot. Nap stops at the serious thermal state, but use short times.
+- If Nap is force-killed (`kill -9`) or crashes while holding sleep off, sleep stays off until Nap starts again or you run `sudo pmset -a disablesleep 0`.
+- `--snapshot DIR` renders the window to PNGs without running any root step (for checking the UI).

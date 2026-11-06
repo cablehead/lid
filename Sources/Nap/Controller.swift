@@ -2,72 +2,67 @@ import AppKit
 import NapCore
 import SwiftUI
 
-/// Owns the lid timer, the monitors and the menu bar item.
+/// Owns the lid rules, the monitors and the menu bar item.
 @MainActor
-final class Controller: NSObject, ObservableObject, NSMenuDelegate {
-    // What the Show me window shows.
+final class Controller: NSObject, ObservableObject {
     @Published private(set) var settings = PowerSettings(sources: [:])
-    @Published private(set) var rawCustom = ""
-    @Published private(set) var assertions = Assertions(systemWide: [:], byProcess: [])
+    @Published private(set) var assertions = Assertions()
     @Published private(set) var guardian: LidGuard
     @Published private(set) var hasPermission = false
     @Published var message: String?
 
-    static let durations = [15, 30, 60, 90, 120]
-    static let floors = [10, 15, 20, 30]
+    /// --snapshot: render only. No root commands, no admin prompts, nothing
+    /// written to the defaults (shared with a running Nap).
+    let readOnly: Bool
 
     private let defaults = UserDefaults.standard
     private var statusItem: NSStatusItem?
     private var timer: DispatchSourceTimer?
     private var signalSources: [DispatchSourceSignal] = []
     private var window: NSWindow?
-    private lazy var lid = LidMonitor { [weak self] closed in self?.send(.lid(closed: closed)) }
+    private lazy var lid = LidMonitor { [weak self] closed in self?.send(.lid(closed: closed)); self?.refreshIfShown() }
     private lazy var power = PowerMonitor { [weak self] reading in self?.power(reading) }
-
-    var minutes: Int {
-        get { defaults.object(forKey: "minutes") as? Int ?? 60 }
-        set { defaults.set(newValue, forKey: "minutes"); guardian.duration = TimeInterval(newValue * 60) }
-    }
-
-    var batteryFloor: Int {
-        get { defaults.object(forKey: "batteryFloor") as? Int ?? 15 }
-        set { defaults.set(newValue, forKey: "batteryFloor"); guardian.batteryFloor = newValue }
-    }
 
     /// True while disablesleep 1 is set by Nap, kept across launches so a
     /// crash or forced quit is undone at the next launch.
     private var weDisabledSleep: Bool {
         get { defaults.bool(forKey: "weDisabledSleep") }
-        set { defaults.set(newValue, forKey: "weDisabledSleep") }
+        set { if !readOnly { defaults.set(newValue, forKey: "weDisabledSleep") } }
     }
 
-    override init() {
+    private static func ruleKey(_ source: PowerSource) -> String { "lidRule.\(source == .ac ? "ac" : "battery")" }
+
+    init(readOnly: Bool) {
+        self.readOnly = readOnly
         let reading = PowerMonitor.read()
-        guardian = LidGuard(
-            duration: TimeInterval((UserDefaults.standard.object(forKey: "minutes") as? Int ?? 60) * 60),
-            batteryFloor: UserDefaults.standard.object(forKey: "batteryFloor") as? Int ?? 15,
-            onBattery: reading.onBattery,
-            batteryPercent: reading.percent,
-            thermal: ProcessInfo.processInfo.thermalState.level
-        )
+        var rules: [PowerSource: LidRule] = [:]
+        for source in [PowerSource.ac, .battery] {
+            rules[source] = UserDefaults.standard.string(forKey: Self.ruleKey(source)).flatMap(LidRule.init(stored:)) ?? .sleep
+        }
+        guardian = LidGuard(rules: rules, onBattery: reading.onBattery, batteryPercent: reading.percent,
+                            thermal: ProcessInfo.processInfo.thermalState.level)
         super.init()
     }
 
     func start() {
         refresh()
-        if weDisabledSleep {
-            // Left on by a crash or forced quit: put sleep back.
-            if settings.sleepDisabled { _ = rootRun(.disableSleep(false)) } else { weDisabledSleep = false }
-        }
+        let lidClosed = lid.isClosed
+        guardian = LidGuard(rules: guardian.rules, batteryFloor: guardian.batteryFloor,
+                            // Left on by a crash or forced quit: start() puts it back.
+                            sleepDisabled: weDisabledSleep && settings.sleepDisabled,
+                            lidClosed: lidClosed, onBattery: guardian.onBattery,
+                            batteryPercent: guardian.batteryPercent, thermal: guardian.thermal)
+        perform(guardian.start())  // read-only: root steps are only logged
 
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         let menu = NSMenu()
-        menu.delegate = self
-        item.menu = menu
-        statusItem = item
+        menu.addItem(item("Show Me…", #selector(menuShow)))
+        menu.addItem(.separator())
+        menu.addItem(item("Quit Nap", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
+        status.menu = menu
+        statusItem = status
         updateIcon()
 
-        send(.lid(closed: lid.isClosed))
         lid.start()
         power.start()
         let center = NotificationCenter.default
@@ -82,11 +77,11 @@ final class Controller: NSObject, ObservableObject, NSMenuDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.lid.changed()
-                if let self { self.power(PowerMonitor.read()) }
+                self?.power(PowerMonitor.read())
             }
         }
 
-        // kill/Ctrl-C: restore sleep, then exit.
+        // kill/Ctrl-C: put sleep back, then exit.
         for sig in [SIGTERM, SIGINT, SIGHUP] {
             signal(sig, SIG_IGN)
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
@@ -102,23 +97,38 @@ final class Controller: NSObject, ObservableObject, NSMenuDelegate {
     // MARK: Reading the settings
 
     func refresh() {
-        rawCustom = Shell.pmset("-g", "custom")
-        settings = PowerSettings.parse(custom: rawCustom, systemWide: Shell.pmset("-g"))
+        settings = PowerSettings.parse(custom: Shell.pmset("-g", "custom"), systemWide: Shell.pmset("-g"))
         assertions = Assertions.parse(Shell.pmset("-g", "assertions"))
         hasPermission = FileManager.default.fileExists(atPath: Sudoers.path)
     }
 
-    // MARK: The lid timer
+    private func refreshIfShown() {
+        if window?.isVisible == true { refresh() }
+    }
+
+    /// `disablesleep 1` is set, and not by Nap.
+    var foreignDisableSleep: Bool { settings.sleepDisabled && !guardian.sleepDisabled }
+
+    // MARK: Lid rules
 
     private func power(_ reading: PowerMonitor.Reading) {
         send(.power(onBattery: reading.onBattery))
         if let percent = reading.percent { send(.battery(percent: percent)) }
+        refreshIfShown()
     }
 
     func send(_ event: LidGuard.Event) {
-        let actions = guardian.handle(event, now: Date())
-        perform(actions)
+        perform(guardian.handle(event, now: Date()))
         updateIcon()
+    }
+
+    func setRule(_ rule: LidRule, for source: PowerSource) {
+        message = nil
+        send(.setRule(source, rule))
+        if !readOnly, guardian.rule(source) == rule {
+            defaults.set(rule.stored, forKey: Self.ruleKey(source))
+        }
+        refresh()
     }
 
     private func perform(_ actions: [LidGuard.Action]) {
@@ -138,18 +148,22 @@ final class Controller: NSObject, ObservableObject, NSMenuDelegate {
                 timer = nil
             case .disableSleep(true):
                 if !rootRun(action) {
-                    // Could not turn sleep off: do not arm.
-                    guardian = LidGuard(duration: guardian.duration, batteryFloor: guardian.batteryFloor,
+                    // Sleep could not be held off: drop this source's stay-awake rule.
+                    let source = guardian.source
+                    var rules = guardian.rules
+                    rules[source] = .sleep
+                    if !readOnly { defaults.set(LidRule.sleep.stored, forKey: Self.ruleKey(source)) }
+                    guardian = LidGuard(rules: rules, batteryFloor: guardian.batteryFloor,
                                         lidClosed: guardian.lidClosed, onBattery: guardian.onBattery,
                                         batteryPercent: guardian.batteryPercent, thermal: guardian.thermal)
                     timer?.cancel()
                     timer = nil
-                    message = "Nap could not turn sleep off, so the lid timer is not armed. "
-                        + "Use \"Allow Nap to Change Sleep\" first."
+                    message = "Nap could not turn sleep off, so the lid closed \(source.label.lowercased()) rule "
+                        + "is back to sleep at once. \(message ?? "")"
                     return
                 }
             case .disableSleep(false), .sleepNow:
-                _ = rootRun(action)
+                rootRun(action)
             }
         }
     }
@@ -158,148 +172,58 @@ final class Controller: NSObject, ObservableObject, NSMenuDelegate {
     @discardableResult
     private func rootRun(_ action: LidGuard.Action) -> Bool {
         guard let command = action.pmset else { return true }
+        if readOnly {
+            NSLog("Nap (read-only): would run sudo -n \(command)")
+            return true
+        }
         let result = Shell.sudo(command)
         if result.status == 0 {
             if case .disableSleep(let on) = action { weDisabledSleep = on }
             return true
         }
         NSLog("Nap: \(command) failed: \(result.output)")
-        message = "\"\(command)\" failed: \(result.output.trimmingCharacters(in: .whitespacesAndNewlines))"
+        message = "\"sudo -n \(command)\" failed: \(result.output.trimmingCharacters(in: .whitespacesAndNewlines))"
         return false
-    }
-
-    func toggleArmed() {
-        message = nil
-        if guardian.isArmed {
-            send(.disarm)
-        } else if !hasPermission {
-            allow()
-            if hasPermission { send(.arm) }
-        } else {
-            send(.arm)
-        }
-        if let message { alert(message) }
     }
 
     func quit() {
         send(.quit)
     }
 
-    // MARK: Root setup through the admin prompt
+    // MARK: Admin prompt
 
     func apply(_ goal: Goal) {
+        guard !readOnly else { return }
         message = Shell.admin(goal.rootShell, prompt: "Nap wants to run: \(goal.command)")
         refresh()
     }
 
+    var sudoersContents: String { (try? Sudoers.contents(userName: NSUserName())) ?? "" }
+
+    /// The one-time permission, shown inline in a lid-closed cell. The cell
+    /// shows the exact file first; this runs the admin prompt.
     func allow() {
-        let user = NSUserName()
-        let contents: String
-        let script: String
-        do {
-            contents = try Sudoers.contents(userName: user)
-            script = try Sudoers.installScript(userName: user)
-        } catch {
-            alert("Your user name \"\(user)\" needs escaping in sudoers, so Nap will not write it.")
+        guard !readOnly else { return }
+        guard let script = try? Sudoers.installScript(userName: NSUserName()) else {
+            message = "Your user name \"\(NSUserName())\" needs escaping in sudoers, so Nap will not write it."
             return
         }
-        let confirm = NSAlert()
-        confirm.messageText = "Allow Nap to change sleep"
-        confirm.informativeText = "Nap will write this file to \(Sudoers.path), checked with visudo first. "
-            + "It lets you run only these commands as root, without a password. macOS asks for your password next."
-        confirm.accessoryView = Self.codeView(contents)
-        confirm.addButton(withTitle: "Continue")
-        confirm.addButton(withTitle: "Cancel")
-        NSApp.activate(ignoringOtherApps: true)
-        guard confirm.runModal() == .alertFirstButtonReturn else { return }
-        if let error = Shell.admin(script, prompt: "Nap wants to add \(Sudoers.path).") {
-            alert("Not installed. \(error)")
-        }
+        message = Shell.admin(script, prompt: "Nap wants to add \(Sudoers.path).").map { "Not installed. \($0)" }
         refresh()
-    }
-
-    func removePermission() {
-        if guardian.isArmed { send(.disarm) }
-        if let error = Shell.admin(Sudoers.removeScript, prompt: "Nap wants to remove \(Sudoers.path).") {
-            alert("Not removed. \(error)")
-        } else {
-            weDisabledSleep = false
-        }
-        refresh()
-    }
-
-    private func alert(_ text: String) {
-        let a = NSAlert()
-        a.messageText = "Nap"
-        a.informativeText = text
-        NSApp.activate(ignoringOtherApps: true)
-        a.runModal()
-    }
-
-    static func codeView(_ text: String) -> NSView {
-        let field = NSTextField(wrappingLabelWithString: text)
-        field.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        field.isSelectable = true
-        field.frame = NSRect(x: 0, y: 0, width: 460, height: 0)
-        field.preferredMaxLayoutWidth = 460
-        field.sizeToFit()
-        field.frame.size.width = 460
-        return field
     }
 
     // MARK: Menu bar
 
     private func updateIcon() {
         let (symbol, label): (String, String) = switch guardian.phase {
-        case .off: ("moon.zzz", "Nap: lid timer off")
-        case .armed: ("sun.max", "Nap: armed")
-        case .counting: ("hourglass", "Nap: counting down")
-        case .pluggedIn: ("powerplug", "Nap: lid closed, plugged in")
+        case .idle where guardian.sleepDisabled: ("sun.max", "Nap: lid closed stays awake")
+        case .idle: ("moon.zzz", "Nap")
+        case .awake(_, nil): ("powerplug", "Nap: lid closed, staying awake")
+        case .awake: ("hourglass", "Nap: lid closed, counting down")
         case .stopped: ("moon.zzz.fill", "Nap: put the Mac to sleep")
         }
         statusItem?.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
-        statusItem?.button?.toolTip = guardian.status(now: Date())
-    }
-
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        menu.removeAllItems()
-        let status = menu.addItem(withTitle: guardian.status(now: Date()), action: nil, keyEquivalent: "")
-        status.isEnabled = false
-
-        let arm = item("Lid Closed: Stay Awake for \(minutes) Minutes", #selector(menuToggle))
-        arm.state = guardian.isArmed ? .on : .off
-        menu.addItem(arm)
-
-        let forItem = NSMenuItem(title: "Stay Awake For", action: nil, keyEquivalent: "")
-        let forMenu = NSMenu()
-        for m in Self.durations {
-            let i = item("\(m) Minutes", #selector(menuDuration(_:)))
-            i.tag = m
-            i.state = m == minutes ? .on : .off
-            forMenu.addItem(i)
-        }
-        forItem.submenu = forMenu
-        menu.addItem(forItem)
-
-        let floorItem = NSMenuItem(title: "Sleep Early Under", action: nil, keyEquivalent: "")
-        let floorMenu = NSMenu()
-        for f in Self.floors {
-            let i = item("\(f)% Battery", #selector(menuFloor(_:)))
-            i.tag = f
-            i.state = f == batteryFloor ? .on : .off
-            floorMenu.addItem(i)
-        }
-        floorItem.submenu = floorMenu
-        menu.addItem(floorItem)
-
-        menu.addItem(.separator())
-        menu.addItem(item("Show Me…", #selector(menuShow)))
-        hasPermission = FileManager.default.fileExists(atPath: Sudoers.path)
-        menu.addItem(hasPermission
-            ? item("Remove Nap's Permission…", #selector(menuRemove))
-            : item("Allow Nap to Change Sleep…", #selector(menuAllow)))
-        menu.addItem(.separator())
-        menu.addItem(item("Quit Nap", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
+        statusItem?.button?.toolTip = label
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "", target: AnyObject? = nil) -> NSMenuItem {
@@ -308,63 +232,57 @@ final class Controller: NSObject, ObservableObject, NSMenuDelegate {
         return i
     }
 
-    @objc private func menuToggle() { toggleArmed() }
-    @objc private func menuDuration(_ sender: NSMenuItem) { minutes = sender.tag; updateIcon() }
-    @objc private func menuFloor(_ sender: NSMenuItem) { batteryFloor = sender.tag; send(.battery(percent: guardian.batteryPercent ?? 100)) }
     @objc private func menuShow() { showWindow() }
-    @objc private func menuAllow() { allow() }
-    @objc private func menuRemove() { removePermission() }
-
-    /// Opens the menu, for checking it (launch with --menu).
-    func openMenu() {
-        statusItem?.button?.performClick(nil)
-    }
-
-    /// Writes the window as a PNG and the menu as text into `dir`, rendered
-    /// by the app itself (launch with --snapshot DIR). For checking the UI
-    /// where screen capture is not allowed.
-    func snapshot(into dir: String) {
-        showWindow()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in
-            if let view = window?.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-                view.cacheDisplay(in: view.bounds, to: rep)
-                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir + "/show-me.png"))
-            }
-            if let button = statusItem?.button, let w = button.window {
-                NSLog("Nap: status item at \(w.frame), image \(button.image?.accessibilityDescription ?? "none")")
-            }
-            let menu = NSMenu()
-            menuNeedsUpdate(menu)
-            func lines(_ menu: NSMenu, _ indent: String) -> [String] {
-                menu.items.flatMap { item -> [String] in
-                    let mark = item.state == .on ? "[x] " : ""
-                    let line = item.isSeparatorItem ? indent + "----" : indent + mark + item.title
-                    return [line] + (item.submenu.map { lines($0, indent + "    ") } ?? [])
-                }
-            }
-            try? (lines(menu, "").joined(separator: "\n") + "\n")
-                .write(toFile: dir + "/menu.txt", atomically: true, encoding: .utf8)
-        }
-    }
 
     // MARK: Show me window
 
     func showWindow() {
         refresh()
         if window == nil {
-            let w = NSWindow(contentViewController: NSHostingController(rootView: ShowMe(controller: self)))
+            let host = NSHostingController(rootView: ShowMe(controller: self))
+            host.sizingOptions = .preferredContentSize
+            let w = NSWindow(contentViewController: host)
             w.title = "Nap"
-            w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            w.styleMask = [.titled, .closable, .miniaturizable]
             w.isReleasedWhenClosed = false
-            w.setContentSize(NSSize(width: 560, height: 640))
             w.center()
+            NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: w, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refresh() }
+            }
             window = w
         }
-        // A menu bar app is not active when its menu is used, and macOS 14's
-        // cooperative activate() may be refused: the window then opened
-        // behind every other. Take activation, and order it front anyway.
-        NSApp.activate(ignoringOtherApps: true)
+        if let view = window?.contentViewController?.view {
+            view.layoutSubtreeIfNeeded()
+            window?.setContentSize(view.fittingSize)
+        }
+        NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
-        window?.orderFrontRegardless()
+    }
+
+    /// Renders the window, and the choices of one lid-closed cell, as PNGs in
+    /// `dir` (launch with --snapshot DIR), for checking where screen capture
+    /// is not allowed.
+    func snapshot(into dir: String) {
+        showWindow()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in
+            if let view = window?.contentView { Self.png(view, to: dir + "/show-me.png") }
+            let choices = NSHostingView(rootView: CellChoices(controller: self, source: .battery, lidClosed: true,
+                                                              initial: .stayAwake(minutes: 60))
+                .frame(width: 340).padding(14).background(Color(nsColor: .windowBackgroundColor)))
+            let w = NSWindow(contentRect: NSRect(origin: .zero, size: choices.fittingSize), styleMask: [.borderless],
+                             backing: .buffered, defer: false)
+            w.contentView = choices
+            choices.layoutSubtreeIfNeeded()
+            Self.png(choices, to: dir + "/show-me-cell.png")
+            if let button = statusItem?.button, let bw = button.window {
+                NSLog("Nap: status item at \(bw.frame)")
+            }
+        }
+    }
+
+    private static func png(_ view: NSView, to path: String) {
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
 }
