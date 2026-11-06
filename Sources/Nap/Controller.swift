@@ -258,6 +258,12 @@ final class Controller: NSObject, ObservableObject {
         // A menu bar app is not active when its menu is used, and macOS 14's
         // cooperative activate() may be refused: the window then opened
         // behind every other. Take activation, and order it front anyway.
+        // A snapshot renders off-screen and never takes the user's focus.
+        if readOnly {
+            window?.setFrameOrigin(NSPoint(x: -20000, y: -20000))
+            window?.orderBack(nil)
+            return
+        }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
         window?.orderFrontRegardless()
@@ -283,6 +289,7 @@ final class Controller: NSObject, ObservableObject {
             if let button = statusItem?.button, let bw = button.window {
                 NSLog("Nap: status item at \(bw.frame)")
             }
+            NSApp.terminate(nil)
         }
     }
 
