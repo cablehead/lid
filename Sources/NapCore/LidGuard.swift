@@ -1,19 +1,48 @@
 import Foundation
 
-/// The lid-closed timer, as a pure state machine. The app feeds it events
-/// (lid, power, battery, heat, timer, arm/disarm/quit) and runs the actions it
-/// returns, in order.
+/// What the Mac does with the lid closed, on one power source.
+public enum LidRule: Equatable, Sendable {
+    /// macOS's own behaviour: sleep at once.
+    case sleep
+    /// Stay awake this many minutes after the lid closes, then sleep.
+    /// nil: stay awake as long as the lid is closed.
+    case stayAwake(minutes: Int?)
+
+    public var staysAwake: Bool { self != .sleep }
+
+    /// Stored form for UserDefaults: "sleep", "awake", "awake:60".
+    public var stored: String {
+        switch self {
+        case .sleep: "sleep"
+        case .stayAwake(nil): "awake"
+        case .stayAwake(let m?): "awake:\(m)"
+        }
+    }
+
+    public init?(stored: String) {
+        if stored == "sleep" { self = .sleep; return }
+        if stored == "awake" { self = .stayAwake(minutes: nil); return }
+        guard stored.hasPrefix("awake:"), let m = Int(stored.dropFirst(6)), m > 0 else { return nil }
+        self = .stayAwake(minutes: m)
+    }
+}
+
+/// The lid-closed rules, as a pure state machine. The app feeds it events
+/// (lid, power, battery, heat, timer, rule changes, quit) and runs the actions
+/// it returns, in order.
 ///
-/// Rules:
-/// - Armed: `disablesleep 1` is set, so closing the lid does not sleep the Mac.
-/// - Lid closed on battery: the countdown runs. Lid opened: it is cancelled,
-///   and the next close gets the full time again.
-/// - Lid closed and plugged in: the Mac stays awake and the countdown pauses;
-///   unplugging resumes it with the time that was left.
-/// - Time up, too hot (serious or critical), or battery under the floor while
-///   the lid is closed: `disablesleep 0`, then `sleepnow`. Nap stays armed and
-///   sets `disablesleep 1` again the next time the lid opens.
-/// - Disarm or quit: `disablesleep 0`, always.
+/// - Lid open: `disablesleep 1` is held exactly when the current power
+///   source's rule is to stay awake (it must already be set when the lid
+///   closes, or macOS sleeps at once).
+/// - Lid closed with a stay-awake rule: awake until `closedAt + minutes` of
+///   the current source's rule. When the power source changes, the new
+///   source's rule applies, still counted from the lid close; a `.sleep` rule
+///   or a time already past sleeps at once.
+/// - Too hot (serious or critical), or on battery under the floor, while the
+///   lid is closed: sleep.
+/// - Sleep means `disablesleep 0`, then `pmset sleepnow`. When the lid opens,
+///   `disablesleep` goes back to what the rule wants.
+/// - Quit: `disablesleep 0` if Nap set it.
 public struct LidGuard: Equatable, Sendable {
     public enum Thermal: Int, Comparable, Sendable {
         case nominal, fair, serious, critical
@@ -21,8 +50,7 @@ public struct LidGuard: Equatable, Sendable {
     }
 
     public enum Event: Equatable, Sendable {
-        case arm
-        case disarm
+        case setRule(PowerSource, LidRule)
         case quit
         case lid(closed: Bool)
         case power(onBattery: Bool)
@@ -48,92 +76,87 @@ public struct LidGuard: Equatable, Sendable {
     }
 
     public enum StopReason: Equatable, Sendable {
-        case timeUp, hot, batteryLow
+        case timeUp, hot, batteryLow, rule
     }
 
     public enum Phase: Equatable, Sendable {
-        /// Not armed. Nap leaves sleep alone.
-        case off
-        /// Armed, lid open: closing it starts the countdown.
-        case armed
-        /// Lid closed on battery: sleeps at `deadline`.
-        case counting(deadline: Date)
-        /// Lid closed and plugged in: awake, `remaining` kept for unplugging.
-        case pluggedIn(remaining: TimeInterval)
-        /// Nap put the Mac to sleep; re-arms when the lid opens.
+        /// Lid open, or closed with Nap doing nothing (macOS's own behaviour).
+        case idle
+        /// Lid closed and kept awake by Nap. `deadline` nil: no time limit.
+        case awake(closedAt: Date, deadline: Date?)
+        /// Nap put the Mac to sleep with the lid closed.
         case stopped(StopReason)
     }
 
-    public private(set) var phase: Phase = .off
-    public private(set) var lidClosed = false
-    public private(set) var onBattery = false
+    public private(set) var phase: Phase = .idle
+    public private(set) var rules: [PowerSource: LidRule]
+    /// True while Nap holds `disablesleep 1`.
+    public private(set) var sleepDisabled: Bool
+    public private(set) var lidClosed: Bool
+    public private(set) var onBattery: Bool
     public private(set) var batteryPercent: Int?
-    public private(set) var thermal: Thermal = .nominal
-    /// How long to stay awake with the lid closed on battery.
-    public var duration: TimeInterval
-    /// Stop early under this battery percentage.
+    public private(set) var thermal: Thermal
+    /// Sleep early under this battery percentage (lid closed, on battery).
     public var batteryFloor: Int
 
-    public init(duration: TimeInterval = 3600, batteryFloor: Int = 15,
-                lidClosed: Bool = false, onBattery: Bool = false,
+    /// `sleepDisabled`: Nap set `disablesleep 1` earlier and it is still set
+    /// (after a crash), so `start` can put it back.
+    public init(rules: [PowerSource: LidRule] = [:], batteryFloor: Int = 15,
+                sleepDisabled: Bool = false, lidClosed: Bool = false, onBattery: Bool = false,
                 batteryPercent: Int? = nil, thermal: Thermal = .nominal) {
-        self.duration = duration
+        self.rules = rules
         self.batteryFloor = batteryFloor
+        self.sleepDisabled = sleepDisabled
         self.lidClosed = lidClosed
         self.onBattery = onBattery
         self.batteryPercent = batteryPercent
         self.thermal = thermal
     }
 
-    public var isArmed: Bool { phase != .off }
+    public var source: PowerSource { onBattery ? .battery : .ac }
+    public func rule(_ source: PowerSource) -> LidRule { rules[source] ?? .sleep }
+    public var currentRule: LidRule { rule(source) }
 
     var tooHot: Bool { thermal >= .serious }
     var batteryLow: Bool { onBattery && (batteryPercent.map { $0 < batteryFloor } ?? false) }
 
+    /// At launch: with the lid open, hold or release sleep for the current rule.
+    public mutating func start() -> [Action] {
+        lidClosed ? [] : holdForCurrentRule()
+    }
+
     public mutating func handle(_ event: Event, now: Date) -> [Action] {
         switch event {
-        case .arm:
-            guard phase == .off else { return [] }
-            phase = .armed
-            var actions: [Action] = [.disableSleep(true)]
-            if lidClosed { actions += lidJustClosed(now: now, remaining: duration) }
-            return actions
+        case .setRule(let source, let rule):
+            rules[source] = rule
+            if !lidClosed { return holdForCurrentRule() }
+            if case .awake(let closedAt, _) = phase { return keepAwake(closedAt: closedAt, now: now) }
+            return []
 
-        case .disarm, .quit:
-            guard phase != .off else { return [] }
-            phase = .off
-            return [.cancelTimer, .disableSleep(false)]
+        case .quit:
+            let actions: [Action] = sleepDisabled ? [.cancelTimer, .disableSleep(false)] : [.cancelTimer]
+            sleepDisabled = false
+            phase = .idle
+            return actions
 
         case .lid(let closed):
             guard closed != lidClosed else { return [] }
             lidClosed = closed
-            switch phase {
-            case .off:
-                return []
-            case .armed:
-                return closed ? lidJustClosed(now: now, remaining: duration) : []
-            case .counting, .pluggedIn:
-                // Opened (a close while closed is filtered above).
-                phase = .armed
-                return [.cancelTimer]
-            case .stopped:
-                guard !closed else { return [] }
-                phase = .armed
-                return [.disableSleep(true)]
+            if closed {
+                // Nap only acts if it held sleep off; otherwise macOS sleeps.
+                guard sleepDisabled else { return [] }
+                return keepAwake(closedAt: now, now: now)
             }
+            let wasAwake = phase != .idle
+            phase = .idle
+            return (wasAwake ? [.cancelTimer] : []) + holdForCurrentRule()
 
         case .power(let battery):
             guard battery != onBattery else { return [] }
             onBattery = battery
-            switch phase {
-            case .counting(let deadline) where !battery:
-                phase = .pluggedIn(remaining: max(0, deadline.timeIntervalSince(now)))
-                return [.cancelTimer]
-            case .pluggedIn(let remaining) where battery:
-                return lidJustClosed(now: now, remaining: remaining)
-            default:
-                return []
-            }
+            if !lidClosed { return holdForCurrentRule() }
+            if case .awake(let closedAt, _) = phase { return keepAwake(closedAt: closedAt, now: now) }
+            return []
 
         case .battery(let percent):
             batteryPercent = percent
@@ -144,59 +167,50 @@ public struct LidGuard: Equatable, Sendable {
             return checkSafety()
 
         case .timerFired:
-            guard case .counting = phase else { return [] }
+            guard case .awake(_, let deadline?) = phase else { return [] }
+            // A timer left from an earlier rule can be stale: trust the deadline.
+            if deadline.timeIntervalSince(now) > 1 { return [] }
             return stop(.timeUp)
         }
     }
 
-    /// The lid is closed (or the Mac went to battery with it closed).
-    private mutating func lidJustClosed(now: Date, remaining: TimeInterval) -> [Action] {
+    /// Lid open: hold `disablesleep 1` exactly when the current rule stays awake.
+    private mutating func holdForCurrentRule() -> [Action] {
+        let want = currentRule.staysAwake
+        guard want != sleepDisabled else { return [] }
+        sleepDisabled = want
+        return [.disableSleep(want)]
+    }
+
+    /// Lid closed, Nap holding sleep off: apply the current source's rule.
+    private mutating func keepAwake(closedAt: Date, now: Date) -> [Action] {
         if tooHot { return stop(.hot) }
         if batteryLow { return stop(.batteryLow) }
-        if !onBattery {
-            phase = .pluggedIn(remaining: remaining)
-            return []
+        switch currentRule {
+        case .sleep:
+            return stop(.rule)
+        case .stayAwake(nil):
+            phase = .awake(closedAt: closedAt, deadline: nil)
+            return [.cancelTimer]
+        case .stayAwake(let minutes?):
+            let deadline = closedAt.addingTimeInterval(TimeInterval(minutes * 60))
+            let left = deadline.timeIntervalSince(now)
+            if left <= 0 { return stop(.timeUp) }
+            phase = .awake(closedAt: closedAt, deadline: deadline)
+            return [.startTimer(seconds: left)]
         }
-        if remaining <= 0 { return stop(.timeUp) }
-        phase = .counting(deadline: now.addingTimeInterval(remaining))
-        return [.startTimer(seconds: remaining)]
     }
 
     private mutating func checkSafety() -> [Action] {
-        switch phase {
-        case .counting, .pluggedIn:
-            if tooHot { return stop(.hot) }
-            if batteryLow { return stop(.batteryLow) }
-            return []
-        default:
-            return []
-        }
+        guard case .awake = phase else { return [] }
+        if tooHot { return stop(.hot) }
+        if batteryLow { return stop(.batteryLow) }
+        return []
     }
 
     private mutating func stop(_ reason: StopReason) -> [Action] {
         phase = .stopped(reason)
+        sleepDisabled = false
         return [.cancelTimer, .disableSleep(false), .sleepNow]
-    }
-
-    /// A short status line for the menu.
-    public func status(now: Date) -> String {
-        switch phase {
-        case .off:
-            return "Off: closing the lid puts the Mac to sleep at once, as usual"
-        case .armed:
-            return "Armed: lid closed on battery stays awake \(Explain.minutes(Int(duration / 60)))"
-        case .counting(let deadline):
-            let left = max(0, Int((deadline.timeIntervalSince(now) / 60).rounded(.up)))
-            return "Lid closed: sleeping in \(Explain.minutes(left))"
-        case .pluggedIn:
-            return "Lid closed, plugged in: staying awake"
-        case .stopped(let reason):
-            let why = switch reason {
-            case .timeUp: "time was up"
-            case .hot: "the Mac got hot"
-            case .batteryLow: "battery was under \(batteryFloor)%"
-            }
-            return "Put to sleep (\(why)). Re-arms when the lid opens"
-        }
     }
 }

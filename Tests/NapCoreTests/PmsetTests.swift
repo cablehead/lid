@@ -47,71 +47,88 @@ import Foundation
     }
 }
 
-@Suite struct ExplainTests {
-    @Test func explainsThisMacHonestly() {
-        let settings = PowerSettings.parse(custom: Fixture.text("pmset-custom"), systemWide: Fixture.text("pmset-g"))
-        #expect(Explain.sentences(settings) == [
-            "Plugged in and on battery: the Mac sleeps after 1 minute idle, but never while the display is on "
-                + "(the display never turns off), so in practice it never idle-sleeps with the lid open.",
-            "Lid closed: sleeps at once (unless an external display is connected).",
-        ])
+@Suite struct TableTests {
+    let settings = PowerSettings.parse(custom: Fixture.text("pmset-custom"), systemWide: Fixture.text("pmset-g"))
+
+    func open(_ source: PowerSource, _ rule: LidRule = .sleep, foreign: Bool = false) -> Table.Cell {
+        Table.openCell(source, settings: settings, rule: rule, foreignDisableSleep: foreign)
     }
 
-    @Test func splitsSourcesThatDiffer() {
-        let settings = PowerSettings(sources: [
-            .ac: SourceSettings(["sleep": "0", "displaysleep": "10"]),
-            .battery: SourceSettings(["sleep": "5", "displaysleep": "5"]),
-        ])
-        #expect(Explain.sentences(settings).prefix(2) == [
-            "Plugged in: the display turns off after 10 minutes idle. The Mac never sleeps when idle.",
-            "On battery: the display turns off after 5 minutes idle, and the Mac sleeps right after.",
-        ])
+    @Test func thisMacWithLidOpen() {
+        // sleep 1 + displaysleep 0: never idle-sleeps, the display stays on.
+        for source in [PowerSource.ac, .battery] {
+            #expect(open(source) == Table.Cell(text: "never sleeps (display stays on)",
+                                               detail: "sleep 1, displaysleep 0", isDefault: false))
+        }
+    }
+
+    @Test func thisMacWithLidClosed() {
+        for source in [PowerSource.ac, .battery] {
+            #expect(Table.closedCell(source, rule: .sleep, batteryFloor: 15, foreignDisableSleep: false)
+                == Table.Cell(text: "sleeps at once", detail: nil, isDefault: true))
+        }
+    }
+
+    @Test func lidClosedRules() {
+        #expect(Table.closedCell(.battery, rule: .stayAwake(minutes: 60), batteryFloor: 15, foreignDisableSleep: false)
+            == Table.Cell(text: "stays awake 60 min, then sleeps", detail: "sleeps early if hot or under 15%", isDefault: false))
+        #expect(Table.closedCell(.ac, rule: .stayAwake(minutes: nil), batteryFloor: 15, foreignDisableSleep: false)
+            == Table.Cell(text: "stays awake", detail: "sleeps early if hot", isDefault: false))
+        #expect(Table.closedCell(.ac, rule: .sleep, batteryFloor: 15, foreignDisableSleep: true).text
+            == "stays awake (disablesleep 1)")
     }
 
     @Test func idleCases() {
-        #expect(Explain.idle(SourceSettings(["sleep": "0", "displaysleep": "0"])) == "never sleeps when idle, and the display never turns off.")
-        #expect(Explain.idle(SourceSettings(["sleep": "30", "displaysleep": "10"])) == "the display turns off after 10 minutes idle, and the Mac sleeps after 30 minutes idle.")
-    }
-
-    @Test func sleepDisabledSaysSo() {
-        let settings = PowerSettings(sources: [.ac: SourceSettings(["sleep": "1"])], sleepDisabled: true)
-        #expect(Explain.sentences(settings).count == 1)
-        #expect(Explain.sentences(settings)[0].hasPrefix("Sleep is turned off"))
+        func cell(_ sleep: Int, _ display: Int, _ source: PowerSource = .ac, rule: LidRule = .sleep) -> Table.Cell {
+            let s = PowerSettings(sources: [source: SourceSettings(["sleep": "\(sleep)", "displaysleep": "\(display)"])])
+            return Table.openCell(source, settings: s, rule: rule, foreignDisableSleep: false)
+        }
+        #expect(cell(1, 10).text == "sleeps after 10 min idle")
+        #expect(cell(1, 10).isDefault)
+        #expect(cell(1, 2, .battery).isDefault)
+        #expect(!cell(1, 10, .battery).isDefault)
+        #expect(cell(30, 10).text == "sleeps after 30 min idle")
+        #expect(!cell(30, 10).isDefault)
+        #expect(cell(0, 10).text == "never sleeps (display off after 10 min)")
+        #expect(cell(0, 0).text == "never sleeps (display stays on)")
+        // A stay-awake lid rule holds disablesleep 1, so idle sleep stops too.
+        #expect(cell(1, 10, rule: .stayAwake(minutes: 60)).text == "never sleeps (held by the lid rule)")
+        #expect(!cell(1, 10, rule: .stayAwake(minutes: 60)).isDefault)
+        #expect(open(.ac, foreign: true).text == "never sleeps (disablesleep 1)")
     }
 
     @Test func awakeLinesFromThisMac() {
         let a = Assertions.parse(Fixture.text("pmset-assertions"))
-        #expect(Explain.awake(a) == [
-            "The display is on (macOS never idle-sleeps while it is).",
-            "runningboardd (pid 611): for com.apple.dataaccess.dataaccessd",
-            "sharingd (pid 964): Handoff",
-            "caffeinate (pid 28339): caffeinate command-line tool, for 94 s more",
+        #expect(Table.awakeLines(a) == [
+            "runningboardd (dataaccessd)",
+            "sharingd (Handoff)",
+            "caffeinate, 2 min left",
         ])
+        #expect(Table.awakeLines(Assertions()) == [])
+    }
+
+    @Test func barOnlyWhileAwakeWithLidClosed() {
+        let utc = TimeZone(identifier: "UTC")!
+        let closed = Date(timeIntervalSince1970: 14 * 3600 + 2 * 60)
+        var g = LidGuard(rules: [.battery: .stayAwake(minutes: 60), .ac: .stayAwake(minutes: nil)],
+                         onBattery: true, batteryPercent: 80)
+        #expect(Table.bar(g, timeZone: utc) == nil)
+        _ = g.start()
+        _ = g.handle(.lid(closed: true), now: closed)
+        #expect(Table.bar(g, timeZone: utc) == ["Closed 14:02 → sleeps 15:02", "Sleeps early if hot or battery under 15%."])
+        _ = g.handle(.power(onBattery: false), now: closed.addingTimeInterval(600))
+        #expect(Table.bar(g, timeZone: utc) == ["Closed 14:02 → stays awake (plugged in)", "Sleeps early if hot."])
     }
 }
 
 @Suite struct GoalTests {
     @Test func commands() {
-        let all = Goal.all
-        #expect(all.map(\.command) == [
-            "sudo pmset -c sleep 0",
-            "sudo pmset -c displaysleep 30 sleep 30",
-            "sudo pmset -b sleep 0",
-            "sudo pmset -b displaysleep 10 sleep 10",
-        ])
-        #expect(all[0].rootShell == "/usr/bin/pmset -c sleep 0")
-        #expect(all[0].title == "Plugged in: never sleep when idle")
-        #expect(all[3].title == "On battery: sleep after 10 minutes idle")
-    }
-
-    @Test func isMetReadsCurrentSettings() {
-        let settings = PowerSettings.parse(custom: Fixture.text("pmset-custom"))
-        #expect(Goal.all.allSatisfy { !$0.isMet(by: settings) })
-        var g = Goal(source: .battery, kind: .idleSleepAfter, minutes: 1)
-        #expect(!g.isMet(by: settings))  // displaysleep is 0, not 1
-        g = Goal(source: .ac, kind: .neverIdleSleep)
-        let never = PowerSettings(sources: [.ac: SourceSettings(["sleep": "0", "displaysleep": "0"])])
-        #expect(g.isMet(by: never))
+        let never = Goal(source: .ac, kind: .neverIdleSleep)
+        #expect(never.command == "sudo pmset -c sleep 0")
+        #expect(never.rootShell == "/usr/bin/pmset -c sleep 0")
+        #expect(Goal(source: .battery, kind: .idleSleepAfter, minutes: 10).command
+            == "sudo pmset -b displaysleep 10 sleep 10")
+        #expect(Goal(source: .battery, kind: .neverIdleSleep).command == "sudo pmset -b sleep 0")
     }
 }
 
