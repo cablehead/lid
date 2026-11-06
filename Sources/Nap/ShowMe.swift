@@ -5,6 +5,7 @@ import SwiftUI
 struct ShowMe: View {
     @ObservedObject var controller: Controller
     @State private var open: CellID?
+    @State private var hovered: CellID?
     static let labelWidth: CGFloat = 84
     static let cellWidth: CGFloat = 200
 
@@ -77,22 +78,38 @@ struct ShowMe: View {
                 Text(detail).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if !c.isDefault {
-                Text("not macOS default").font(.caption2).foregroundStyle(.orange)
+            Spacer(minLength: 2)
+            HStack(spacing: 4) {
+                Text(c.isDefault ? "macOS default" : "not macOS default")
+                    .font(.caption2)
+                    .foregroundStyle(c.isDefault ? Color.secondary : Color.orange)
+                Spacer()
+                Text("Change")
+                    .font(.caption)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.semibold))
             }
+            .foregroundStyle(Color.accentColor)
         }
         .padding(8)
         .frame(width: Self.cellWidth, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
+        .background(RoundedRectangle(cornerRadius: 6)
+            .fill(Color.secondary.opacity(hovered == id || open == id ? 0.16 : 0.08)))
         .overlay(RoundedRectangle(cornerRadius: 6)
-            .stroke(c.isDefault ? Color.clear : Color.orange.opacity(0.6)))
+            .stroke(c.isDefault ? Color.secondary.opacity(0.25) : Color.orange.opacity(0.6)))
         .contentShape(Rectangle())
+        .onHover { inside in
+            if inside { hovered = id; NSCursor.pointingHand.push() } else { if hovered == id { hovered = nil }; NSCursor.pop() }
+        }
         .onTapGesture { open = id }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Shows the choices for this cell")
         .popover(isPresented: Binding(get: { open == id }, set: { if !$0 { open = nil } })) {
             CellChoices(controller: controller, source: id.source, lidClosed: id.lidClosed) { open = nil }
                 .padding(14)
-                .frame(width: 340)
+                .frame(width: 360)
         }
     }
 }
@@ -104,7 +121,7 @@ struct CellChoices: View {
     let lidClosed: Bool
     var done: () -> Void = {}
 
-    enum Choice: Hashable { case never, after, sleep, awakeFor, awakeAlways }
+    enum Choice: Hashable { case macDefault, never, after, sleep, awakeFor, awakeAlways }
     @State private var choice: Choice
     @State private var minutes: Int
 
@@ -121,14 +138,22 @@ struct CellChoices: View {
             case .stayAwake(let m?): _choice = State(initialValue: .awakeFor); _minutes = State(initialValue: m)
             }
         } else {
-            let idle = controller.settings.sources[source].flatMap(Table.idleMinutes)
-            _choice = State(initialValue: idle == nil ? .never : .after)
+            let current = controller.settings.sources[source]
+            let idle = current.flatMap(Table.idleMinutes)
+            let isDefault = current?.sleep == Table.defaultSleepMinutes
+                && current?.displaySleep == Table.defaultIdleMinutes(source)
+            _choice = State(initialValue: isDefault ? .macDefault : idle == nil ? .never : .after)
             _minutes = State(initialValue: idle ?? Table.defaultIdleMinutes(source))
         }
     }
 
     private var goal: Goal {
-        Goal(source: source, kind: choice == .never ? .neverIdleSleep : .idleSleepAfter, minutes: minutes)
+        let kind: Goal.Kind = switch choice {
+        case .macDefault: .macDefault
+        case .never: .neverIdleSleep
+        default: .idleSleepAfter
+        }
+        return Goal(source: source, kind: kind, minutes: minutes)
     }
 
     private var rule: LidRule {
@@ -155,6 +180,7 @@ struct CellChoices: View {
                     Text("Stay awake N min, then sleep").tag(Choice.awakeFor)
                     if source == .ac { Text("Stay awake").tag(Choice.awakeAlways) }
                 } else {
+                    Text("macOS default: \(Table.defaultOpenText(source))").tag(Choice.macDefault)
                     Text("Never sleep when idle").tag(Choice.never)
                     Text("Sleep after N min idle").tag(Choice.after)
                 }
@@ -214,6 +240,9 @@ struct CellChoices: View {
         if rule.staysAwake {
             return "Nap: sudo -n pmset -a disablesleep 1 now; at the end disablesleep 0, then pmset sleepnow"
         }
-        return "No command: macOS does this when Nap holds nothing."
+        if controller.guardian.rule(source).staysAwake {
+            return "Nap stops holding sleep off \(source.label.lowercased()): sudo -n pmset -a disablesleep 0"
+        }
+        return "Nothing to run: macOS already does this."
     }
 }

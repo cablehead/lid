@@ -5,6 +5,8 @@ public struct Goal: Identifiable, Equatable, Sendable {
     public enum Kind: String, Sendable {
         case neverIdleSleep
         case idleSleepAfter
+        /// macOS's own settings for this source.
+        case macDefault
     }
 
     public var source: PowerSource
@@ -30,6 +32,8 @@ public struct Goal: Identifiable, Equatable, Sendable {
         case .idleSleepAfter:
             // The Mac only idle-sleeps once the display is off, so both are set.
             [("displaysleep", minutes), ("sleep", minutes)]
+        case .macDefault:
+            [("displaysleep", Table.defaultIdleMinutes(source)), ("sleep", Table.defaultSleepMinutes)]
         }
     }
 

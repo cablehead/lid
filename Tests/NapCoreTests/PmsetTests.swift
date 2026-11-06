@@ -57,8 +57,10 @@ import Foundation
     @Test func thisMacWithLidOpen() {
         // sleep 1 + displaysleep 0: never idle-sleeps, the display stays on.
         for source in [PowerSource.ac, .battery] {
-            #expect(open(source) == Table.Cell(text: "never sleeps (display stays on)",
-                                               detail: "sleep 1, displaysleep 0", isDefault: false))
+            #expect(open(source) == Table.Cell(
+                text: "never sleeps (display stays on)",
+                detail: "set to sleep after 1 min, but the display never turns off, so it never gets there",
+                isDefault: false))
         }
     }
 
@@ -71,7 +73,7 @@ import Foundation
 
     @Test func lidClosedRules() {
         #expect(Table.closedCell(.battery, rule: .stayAwake(minutes: 60), batteryFloor: 15, foreignDisableSleep: false)
-            == Table.Cell(text: "stays awake 60 min, then sleeps", detail: "sleeps early if hot or under 15%", isDefault: false))
+            == Table.Cell(text: "stays awake 60 min, then sleeps", detail: "sleeps early if hot or battery under 15%", isDefault: false))
         #expect(Table.closedCell(.ac, rule: .stayAwake(minutes: nil), batteryFloor: 15, foreignDisableSleep: false)
             == Table.Cell(text: "stays awake", detail: "sleeps early if hot", isDefault: false))
         #expect(Table.closedCell(.ac, rule: .sleep, batteryFloor: 15, foreignDisableSleep: true).text
@@ -83,8 +85,10 @@ import Foundation
             let s = PowerSettings(sources: [source: SourceSettings(["sleep": "\(sleep)", "displaysleep": "\(display)"])])
             return Table.openCell(source, settings: s, rule: rule, foreignDisableSleep: false)
         }
-        #expect(cell(1, 10).text == "sleeps after 10 min idle")
-        #expect(cell(1, 10).isDefault)
+        #expect(cell(1, 10) == Table.Cell(text: "sleeps after 10 min idle", detail: nil, isDefault: true))
+        #expect(cell(30, 10).detail == "display turns off after 10 min")
+        #expect(cell(0, 0).detail == nil)
+        #expect(cell(1, 10, rule: .stayAwake(minutes: 5)).detail == "Nap keeps sleep off so the lid can close awake")
         #expect(cell(1, 2, .battery).isDefault)
         #expect(!cell(1, 10, .battery).isDefault)
         #expect(cell(30, 10).text == "sleeps after 30 min idle")
@@ -105,6 +109,33 @@ import Foundation
             "a caffeinate command, run from a terminal or by an app, 2 min left",
         ])
         #expect(Table.awakeLines(Assertions()) == [])
+    }
+
+    func line(_ process: String, _ name: String, timeout: Int? = nil) -> String {
+        Table.awakeLines(Assertions(byProcess: [Assertion(pid: 1, process: process, type: "PreventUserIdleSystemSleep",
+                                                          name: name, timeoutSeconds: timeout)]))[0]
+    }
+
+    @Test func plainNamesForJargon() {
+        #expect(line("sharingd", "BTLEAdvertisement.D3EA10B4-4C2B-4F0E-9A51-2B7C1D0E9F33") == "Bluetooth advertising to nearby devices")
+        #expect(line("rapportd", "BTLEAdvertisement.D3EA10B4") == "Bluetooth advertising to nearby devices")
+        #expect(line("Siri AI", "UIIntelligenceSupport") == "Siri / Apple Intelligence")
+        #expect(line("AddressBookSourceSync", "Address Book Source Sync", timeout: 1792) == "Contacts syncing, 30 min left")
+    }
+
+    @Test func unknownAppsLoseMachineIDs() {
+        #expect(line("SomeAgent", "SyncTask.3F2504E0-4F89-11D3-9A0C-0305E82C3301") == "SomeAgent (an app or service)")
+        #expect(line("SomeAgent", "com.example.worker.0x7fa3b2c1") == "SomeAgent (an app or service)")
+        #expect(line("SomeAgent", "Uploading photos 9f8e7d6c5b4a") == "SomeAgent (an app or service, for \"Uploading photos\")")
+        #expect(line("SomeAgent", "SomeAgent") == "SomeAgent (an app or service)")
+        #expect(line("SomeAgent", "", timeout: 30) == "SomeAgent (an app or service), 1 min left")
+    }
+
+    @Test func machineIDStripping() {
+        #expect(Table.withoutMachineIDs("BTLEAdvertisement.D3EA10B4-4C2B-4F0E-9A51-2B7C1D0E9F33") == "BTLEAdvertisement")
+        #expect(Table.withoutMachineIDs("task 0xdeadbeef done") == "task done")
+        #expect(Table.withoutMachineIDs("Address Book Source Sync") == "Address Book Source Sync")
+        #expect(Table.withoutMachineIDs("facade") == "facade")  // a word, no digit
     }
 
     @Test func barOnlyWhileAwakeWithLidClosed() {
@@ -129,6 +160,11 @@ import Foundation
         #expect(Goal(source: .battery, kind: .idleSleepAfter, minutes: 10).command
             == "sudo pmset -b displaysleep 10 sleep 10")
         #expect(Goal(source: .battery, kind: .neverIdleSleep).command == "sudo pmset -b sleep 0")
+        // Back to macOS's own settings (checked on macOS 27.2).
+        #expect(Goal(source: .ac, kind: .macDefault).command == "sudo pmset -c displaysleep 10 sleep 1")
+        #expect(Goal(source: .battery, kind: .macDefault).command == "sudo pmset -b displaysleep 2 sleep 1")
+        let restored = PowerSettings(sources: [.battery: SourceSettings(["displaysleep": "2", "sleep": "1"])])
+        #expect(Table.openCell(.battery, settings: restored, rule: .sleep, foreignDisableSleep: false).isDefault)
     }
 }
 

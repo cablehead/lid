@@ -270,14 +270,16 @@ final class Controller: NSObject, ObservableObject {
         showWindow()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in
             if let view = window?.contentView { Self.png(view, to: dir + "/show-me.png") }
-            let choices = NSHostingView(rootView: CellChoices(controller: self, source: .battery, lidClosed: true,
-                                                              initial: .stayAwake(minutes: 60))
-                .frame(width: 340).padding(14).background(Color(nsColor: .windowBackgroundColor)))
-            let w = NSWindow(contentRect: NSRect(origin: .zero, size: choices.fittingSize), styleMask: [.borderless],
-                             backing: .buffered, defer: false)
-            w.contentView = choices
-            choices.layoutSubtreeIfNeeded()
-            Self.png(choices, to: dir + "/show-me-cell.png")
+            for (name, closed) in [("show-me-cell.png", true), ("show-me-cell-open.png", false)] {
+                let choices = NSHostingView(rootView: CellChoices(controller: self, source: .battery, lidClosed: closed,
+                                                                  initial: closed ? .stayAwake(minutes: 60) : nil)
+                    .frame(width: 360).padding(14).background(Color(nsColor: .windowBackgroundColor)))
+                let w = NSWindow(contentRect: NSRect(origin: .zero, size: choices.fittingSize), styleMask: [.borderless],
+                                 backing: .buffered, defer: false)
+                w.contentView = choices
+                choices.layoutSubtreeIfNeeded()
+                Self.png(choices, to: dir + "/" + name)
+            }
             if let button = statusItem?.button, let bw = button.window {
                 NSLog("Nap: status item at \(bw.frame)")
             }
