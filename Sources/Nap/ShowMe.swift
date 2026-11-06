@@ -16,6 +16,15 @@ struct ShowMe: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            // What Nap is, and the question the table answers.
+            VStack(alignment: .leading, spacing: 4) {
+                Text("When does your Mac go to sleep?").font(.title3.weight(.semibold))
+                Text("It depends on two things: whether it is plugged in, and whether the lid is open. Each box says what your Mac does in that case when you stop using it. Click Change to choose something else.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: Self.labelWidth + 2 * Self.cellWidth + 20, alignment: .leading)
+
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     Color.clear.frame(width: Self.labelWidth, height: 1)
@@ -51,7 +60,7 @@ struct ShowMe: View {
             let awake = Table.awakeLines(controller.assertions)
             if !awake.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Also keeping the Mac awake right now:")
+                    Text("Right now, these are keeping your Mac from sleeping, whatever the table says:")
                     ForEach(awake, id: \.self) { Text("· " + $0) }
                 }
                 .font(.caption).foregroundStyle(.secondary)
