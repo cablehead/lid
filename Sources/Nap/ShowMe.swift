@@ -19,7 +19,7 @@ struct ShowMe: View {
             // What Nap is, and the question the table answers.
             VStack(alignment: .leading, spacing: 4) {
                 Text("When does your Mac go to sleep?").font(.title3.weight(.semibold))
-                Text("It depends on two things: whether it is plugged in, and whether the lid is open. Each box says what your Mac does in that case when you stop using it. Click Change to choose something else.")
+                Text("When you stop using it, your Mac turns the display off after a while, and only then goes to sleep, unless an app is keeping it awake. Being plugged in, and closing the lid, change what happens, so this table has a box for each case: plugged in or on battery, lid open or closed. Click Change in a box to choose what happens there.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
