@@ -133,13 +133,16 @@ struct CellChoices: View {
     enum Choice: Hashable { case macDefault, never, after, sleep, awakeFor, awakeAlways }
     @State private var choice: Choice
     @State private var minutes: Int
+    @State private var details: Bool
+
 
     init(controller: Controller, source: PowerSource, lidClosed: Bool,
-         initial: LidRule? = nil, done: @escaping () -> Void = {}) {
+         initial: LidRule? = nil, showDetails: Bool = false, done: @escaping () -> Void = {}) {
         self.controller = controller
         self.source = source
         self.lidClosed = lidClosed
         self.done = done
+        _details = State(initialValue: showDetails)
         if lidClosed {
             switch initial ?? controller.guardian.rule(source) {
             case .sleep: _choice = State(initialValue: .sleep); _minutes = State(initialValue: 60)
@@ -215,7 +218,8 @@ struct CellChoices: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            DisclosureGroup("Details") {
+            DisclosureGroup("Details", isExpanded: $details) {
+                ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(commandText)
                     if needsPermission {
@@ -229,6 +233,9 @@ struct CellChoices: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 4)
+                }
+                // Long enough to read, short enough that the popover stays on screen.
+                .frame(height: 110)
             }
             .font(.caption)
 

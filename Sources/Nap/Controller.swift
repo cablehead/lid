@@ -276,9 +276,11 @@ final class Controller: NSObject, ObservableObject {
         showWindow()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in
             if let view = window?.contentView { Self.png(view, to: dir + "/show-me.png") }
-            for (name, closed) in [("show-me-cell.png", true), ("show-me-cell-open.png", false)] {
+            for (name, closed, details) in [("show-me-cell.png", true, false), ("show-me-cell-details.png", true, true),
+                                            ("show-me-cell-open.png", false, false)] {
                 let choices = NSHostingView(rootView: CellChoices(controller: self, source: .battery, lidClosed: closed,
-                                                                  initial: closed ? .stayAwake(minutes: 60) : nil)
+                                                                  initial: closed ? .stayAwake(minutes: 60) : nil,
+                                                                  showDetails: details)
                     .frame(width: 360).padding(14).background(Color(nsColor: .windowBackgroundColor)))
                 let w = NSWindow(contentRect: NSRect(origin: .zero, size: choices.fittingSize), styleMask: [.borderless],
                                  backing: .buffered, defer: false)
