@@ -26,7 +26,16 @@ public enum Table {
 
     public static let defaultClosedText = "sleeps at once"
 
-    public static func minutes(_ n: Int) -> String { "\(n) min" }
+    /// A span of minutes as it is said: "10 min", "1 hour", "8 hours", "3 days".
+    public static func minutes(_ n: Int) -> String {
+        if n < 60 { return "\(n) min" }
+        if n % 1440 == 0 { return n == 1440 ? "1 day" : "\(n / 1440) days" }
+        if n % 60 == 0 { return n == 60 ? "1 hour" : "\(n / 60) hours" }
+        return "\(n / 60) h \(n % 60) min"
+    }
+
+    /// The spans offered for staying awake with the lid closed.
+    public static let lidSpans = [10, 30, 60, 8 * 60, 12 * 60, 3 * 1440, 7 * 1440]
 
     /// Minutes of idle before the Mac sleeps with the lid open, nil for never.
     /// powerd holds "Prevent sleep while display is on", so the Mac only

@@ -73,7 +73,7 @@ import Foundation
 
     @Test func lidClosedRules() {
         #expect(Table.closedCell(.battery, rule: .stayAwake(minutes: 60), batteryFloor: 15, foreignDisableSleep: false)
-            == Table.Cell(text: "stays awake 60 min, then sleeps", detail: "sleeps early if hot or battery under 15%", isDefault: false))
+            == Table.Cell(text: "stays awake 1 hour, then sleeps", detail: "sleeps early if hot or battery under 15%", isDefault: false))
         #expect(Table.closedCell(.ac, rule: .stayAwake(minutes: nil), batteryFloor: 15, foreignDisableSleep: false)
             == Table.Cell(text: "stays awake", detail: "sleeps early if hot", isDefault: false))
         #expect(Table.closedCell(.ac, rule: .sleep, batteryFloor: 15, foreignDisableSleep: true).text

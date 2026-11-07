@@ -180,7 +180,13 @@ struct CellChoices: View {
         lidClosed && rule.staysAwake && !controller.hasPermission
     }
 
-    private var range: ClosedRange<Int> { lidClosed ? 1...720 : Goal.minuteRange }
+    private var range: ClosedRange<Int> { lidClosed ? 1...(7 * 1440) : Goal.minuteRange }
+
+    /// The spans to choose from, and the current one if it is none of them.
+    private var spans: [Int] {
+        let offered = lidClosed ? Table.lidSpans : [10, 30, 60, 120, 180].filter { Goal.minuteRange.contains($0) }
+        return offered.contains(minutes) ? offered : (offered + [minutes]).sorted()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -189,26 +195,23 @@ struct CellChoices: View {
             Picker("", selection: $choice) {
                 if lidClosed {
                     Text("Sleep at once (macOS default)").tag(Choice.sleep)
-                    Text("Stay awake N min, then sleep").tag(Choice.awakeFor)
+                    Text("Stay awake for a while, then sleep").tag(Choice.awakeFor)
                     if source == .ac { Text("Stay awake").tag(Choice.awakeAlways) }
                 } else {
                     Text("macOS default: \(Table.defaultOpenText(source))").tag(Choice.macDefault)
                     Text("Never sleep when idle").tag(Choice.never)
-                    Text("Sleep after N min idle").tag(Choice.after)
+                    Text("Sleep after a while idle").tag(Choice.after)
                 }
             }
             .pickerStyle(.radioGroup)
             .labelsHidden()
 
             if choice == .after || choice == .awakeFor {
-                HStack(spacing: 4) {
-                    Text("N =")
-                    TextField("", value: $minutes, format: .number)
-                        .frame(width: 48)
-                        .multilineTextAlignment(.trailing)
-                    Stepper("", value: $minutes, in: range).labelsHidden()
-                    Text("min")
+                Picker(choice == .after ? "Idle for" : "For", selection: $minutes) {
+                    ForEach(spans, id: \.self) { Text(Table.minutes($0)).tag($0) }
                 }
+                .pickerStyle(.menu)
+                .fixedSize()
                 .padding(.leading, 20)
             }
 
@@ -260,7 +263,7 @@ struct CellChoices: View {
     private var commandText: String {
         if !lidClosed { return goal.command }
         if rule.staysAwake {
-            return "Now: sudo -n pmset -a disablesleep 1\nAfter N min: disablesleep 0, then pmset sleepnow"
+            return "Now: sudo -n pmset -a disablesleep 1\nAfter \(Table.minutes(minutes)): disablesleep 0, then pmset sleepnow"
         }
         if controller.guardian.rule(source).staysAwake {
             return "Nap stops holding sleep off \(source.label.lowercased()): sudo -n pmset -a disablesleep 0"
