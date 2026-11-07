@@ -5,6 +5,8 @@ import SwiftUI
 struct ShowMe: View {
     @ObservedObject var controller: Controller
     @State private var open: CellID?
+    /// Snapshot only: the cell whose choices open on appear, Details and all.
+    var snapshotCell: CellID?
     @State private var hovered: CellID?
     static let labelWidth: CGFloat = 84
     static let cellWidth: CGFloat = 200
@@ -72,6 +74,11 @@ struct ShowMe: View {
         }
         .padding(18)
         .frame(width: 560)
+        .task {
+            guard let c = snapshotCell else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+            open = c
+        }
     }
 
     private func cell(_ id: CellID) -> some View {
@@ -116,7 +123,8 @@ struct ShowMe: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Shows the choices for this cell")
         .popover(isPresented: Binding(get: { open == id }, set: { if !$0 { open = nil } })) {
-            CellChoices(controller: controller, source: id.source, lidClosed: id.lidClosed) { open = nil }
+            CellChoices(controller: controller, source: id.source, lidClosed: id.lidClosed,
+                        openDetailsLater: snapshotCell == id) { open = nil }
                 .padding(14)
                 .frame(width: 360)
         }
@@ -134,10 +142,13 @@ struct CellChoices: View {
     @State private var choice: Choice
     @State private var minutes: Int
     @State private var details: Bool
-
+    /// Snapshot only: pick Stay awake, then open Details, as clicks would.
+    var openDetailsLater = false
 
     init(controller: Controller, source: PowerSource, lidClosed: Bool,
-         initial: LidRule? = nil, showDetails: Bool = false, done: @escaping () -> Void = {}) {
+         initial: LidRule? = nil, showDetails: Bool = false, openDetailsLater: Bool = false,
+         done: @escaping () -> Void = {}) {
+        self.openDetailsLater = openDetailsLater
         self.controller = controller
         self.source = source
         self.lidClosed = lidClosed
@@ -215,28 +226,11 @@ struct CellChoices: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            DisclosureGroup("Details", isExpanded: $details) {
-                ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(commandText)
-                    if needsPermission {
-                        Text("Allow adds \(Sudoers.path), checked with visudo:")
-                        Text(controller.sudoersContents)
-                    }
-                }
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 4)
-                }
-                // Long enough to read, short enough that the popover stays on screen.
-                .frame(height: 110)
-            }
-            .font(.caption)
-
             HStack {
+                // Details opens beside the panel, so the panel never changes
+                // size and its button stays where it was.
+                Button("Details…") { details.toggle() }
+                    .popover(isPresented: $details, arrowEdge: .trailing) { detailsText }
                 Spacer()
                 if lidClosed && needsPermission {
                     Button("Allow…") { controller.allow() }
@@ -252,6 +246,29 @@ struct CellChoices: View {
                 }
             }
         }
+        .task {
+            guard openDetailsLater else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+            if lidClosed { choice = .awakeFor }
+            try? await Task.sleep(for: .milliseconds(300))
+            details = true
+        }
+    }
+
+    /// What the buttons run, and the sudoers file Allow adds.
+    private var detailsText: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(commandText)
+            if needsPermission {
+                Text("Allow adds \(Sudoers.path), checked with visudo:")
+                Text(controller.sudoersContents)
+            }
+        }
+        .font(.system(size: 11, design: .monospaced))
+        .textSelection(.enabled)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 440, alignment: .leading)
+        .padding(14)
     }
 
     private var commandText: String {

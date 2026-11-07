@@ -239,7 +239,8 @@ final class Controller: NSObject, ObservableObject {
     func showWindow() {
         refresh()
         if window == nil {
-            let host = NSHostingController(rootView: ShowMe(controller: self))
+            let host = NSHostingController(rootView: ShowMe(controller: self,
+                snapshotCell: readOnly ? .init(source: .battery, lidClosed: true) : nil))
             host.sizingOptions = .preferredContentSize
             let w = NSWindow(contentViewController: host)
             w.title = "Nap"
@@ -273,10 +274,15 @@ final class Controller: NSObject, ObservableObject {
     /// `dir` (launch with --snapshot DIR), for checking where screen capture
     /// is not allowed.
     func snapshot(into dir: String) {
+        // Any popover this opens stays transparent, from its first update.
+        NotificationCenter.default.addObserver(forName: NSWindow.didUpdateNotification, object: nil, queue: nil) { note in
+            guard let w = note.object as? NSWindow, String(describing: type(of: w)).contains("Popover") else { return }
+            MainActor.assumeIsolated { w.alphaValue = 0 }
+        }
         showWindow()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in
             if let view = window?.contentView { Self.png(view, to: dir + "/show-me.png") }
-            for (name, closed, details) in [("show-me-cell.png", true, false), ("show-me-cell-details.png", true, true),
+            for (name, closed, details) in [("show-me-cell.png", true, false),
                                             ("show-me-cell-open.png", false, false)] {
                 let choices = NSHostingView(rootView: CellChoices(controller: self, source: .battery, lidClosed: closed,
                                                                   initial: closed ? .stayAwake(minutes: 60) : nil,
@@ -288,11 +294,26 @@ final class Controller: NSObject, ObservableObject {
                 choices.layoutSubtreeIfNeeded()
                 Self.png(choices, to: dir + "/" + name)
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [self] in popoverSnapshot(into: dir) }
             if let button = statusItem?.button, let bw = button.window {
                 NSLog("Nap: status item at \(bw.frame)")
             }
-            NSApp.terminate(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { NSApp.terminate(nil) }
         }
+    }
+
+    /// The popover SwiftUI opened on the lid-closed battery cell (ShowMe's
+    /// snapshotCell) after Stay awake and Details are clicked, and the Details
+    /// popover beside it, as the user sees them. Kept invisible.
+    private func popoverSnapshot(into dir: String) {
+        let pops = NSApp.windows.filter { $0 !== window && String(describing: type(of: $0)).contains("Popover") }
+        for (i, p) in pops.enumerated() {
+            p.alphaValue = 0
+            guard let v = p.contentView else { continue }
+            NSLog("Nap: popover window \(p.frame), content \(v.frame.size), wants \(v.fittingSize)")
+            Self.png(v, to: dir + "/show-me-popover-\(i).png")
+        }
+        if pops.isEmpty { NSLog("Nap: no popover window") }
     }
 
     private static func png(_ view: NSView, to path: String) {
