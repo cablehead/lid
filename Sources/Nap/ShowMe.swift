@@ -182,11 +182,6 @@ struct CellChoices: View {
 
     private var range: ClosedRange<Int> { lidClosed ? 1...(7 * 1440) : Goal.minuteRange }
 
-    /// The spans to choose from, and the current one if it is none of them.
-    private var spans: [Int] {
-        let offered = lidClosed ? Table.lidSpans : [10, 30, 60, 120, 180].filter { Goal.minuteRange.contains($0) }
-        return offered.contains(minutes) ? offered : (offered + [minutes]).sorted()
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -207,11 +202,10 @@ struct CellChoices: View {
             .labelsHidden()
 
             if choice == .after || choice == .awakeFor {
-                Picker(choice == .after ? "Idle for" : "For", selection: $minutes) {
-                    ForEach(spans, id: \.self) { Text(Table.minutes($0)).tag($0) }
+                HStack(spacing: 6) {
+                    Text(choice == .after ? "Idle for" : "For")
+                    DurationField(minutes: $minutes, range: range)
                 }
-                .pickerStyle(.menu)
-                .fixedSize()
                 .padding(.leading, 20)
             }
 
@@ -269,5 +263,59 @@ struct CellChoices: View {
             return "Nap stops holding sleep off \(source.label.lowercased()): sudo -n pmset -a disablesleep 0"
         }
         return "Nothing to run: macOS already does this."
+    }
+}
+
+/// A span of time the way Calendar's custom alert asks for one: a number with
+/// a stepper, and a unit menu. Eight hours is 8 and "hours", never 480.
+struct DurationField: View {
+    enum Unit: Int, CaseIterable, Identifiable {
+        case minutes = 1, hours = 60, days = 1440
+        var id: Int { rawValue }
+        func name(_ n: Int) -> String {
+            switch self {
+            case .minutes: n == 1 ? "minute" : "minutes"
+            case .hours: n == 1 ? "hour" : "hours"
+            case .days: n == 1 ? "day" : "days"
+            }
+        }
+    }
+
+    @Binding var minutes: Int
+    let range: ClosedRange<Int>
+    @State private var amount: Int
+    @State private var unit: Unit
+
+    init(minutes: Binding<Int>, range: ClosedRange<Int>) {
+        _minutes = minutes
+        self.range = range
+        let m = minutes.wrappedValue
+        // The largest unit the span is a whole number of: 480 shows as 8 hours.
+        let u = Unit.allCases.reversed().first { m >= $0.rawValue && m % $0.rawValue == 0 } ?? .minutes
+        _amount = State(initialValue: m / u.rawValue)
+        _unit = State(initialValue: u)
+    }
+
+    private var units: [Unit] { Unit.allCases.filter { $0.rawValue <= range.upperBound } }
+    private var amounts: ClosedRange<Int> { 1...max(1, range.upperBound / unit.rawValue) }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            TextField("", value: $amount, format: .number)
+                .frame(width: 44)
+                .multilineTextAlignment(.trailing)
+            Stepper("", value: $amount, in: amounts).labelsHidden()
+            Picker("", selection: $unit) {
+                ForEach(units) { Text($0.name(amount)).tag($0) }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+        }
+        .onChange(of: amount) { minutes = amount * unit.rawValue }
+        .onChange(of: unit) {
+            amount = min(amount, amounts.upperBound)
+            minutes = amount * unit.rawValue
+        }
     }
 }

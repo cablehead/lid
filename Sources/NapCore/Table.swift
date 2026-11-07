@@ -34,9 +34,6 @@ public enum Table {
         return "\(n / 60) h \(n % 60) min"
     }
 
-    /// The spans offered for staying awake with the lid closed.
-    public static let lidSpans = [10, 30, 60, 8 * 60, 12 * 60, 3 * 1440, 7 * 1440]
-
     /// Minutes of idle before the Mac sleeps with the lid open, nil for never.
     /// powerd holds "Prevent sleep while display is on", so the Mac only
     /// idle-sleeps once the display is off: max(sleep, displaysleep).
