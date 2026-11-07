@@ -206,34 +206,40 @@ struct CellChoices: View {
                     Stepper("", value: $minutes, in: range).labelsHidden()
                     Text("min")
                 }
+                .padding(.leading, 20)
             }
 
-            Text(commandText)
-                .font(.system(.caption, design: .monospaced))
+            if needsPermission {
+                Text("Nap needs your password once, so it can turn sleep off and back on by itself.")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            DisclosureGroup("Details") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(commandText)
+                    if needsPermission {
+                        Text("Allow adds \(Sudoers.path), checked with visudo:")
+                        Text(controller.sudoersContents)
+                    }
+                }
+                .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
-
-            if needsPermission {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Once: let Nap turn sleep off and on without asking for your password. It adds \(Sudoers.path), checked with visudo:")
-                        .font(.caption)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(controller.sudoersContents)
-                        .font(.system(size: 10, design: .monospaced))
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(6)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.1)))
-                    Button("Allow…") { controller.allow() }
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
             }
+            .font(.caption)
 
             HStack {
                 Spacer()
-                if lidClosed {
+                if lidClosed && needsPermission {
+                    Button("Allow…") { controller.allow() }
+                        .keyboardShortcut(.defaultAction)
+                } else if lidClosed {
                     Button("Set") { controller.setRule(rule, for: source); done() }
-                        .disabled(needsPermission || !range.contains(minutes))
+                        .disabled(!range.contains(minutes))
                         .keyboardShortcut(.defaultAction)
                 } else {
                     Button("Apply…") { controller.apply(goal); done() }
@@ -247,7 +253,7 @@ struct CellChoices: View {
     private var commandText: String {
         if !lidClosed { return goal.command }
         if rule.staysAwake {
-            return "Nap: sudo -n pmset -a disablesleep 1 now; at the end disablesleep 0, then pmset sleepnow"
+            return "Now: sudo -n pmset -a disablesleep 1\nAfter N min: disablesleep 0, then pmset sleepnow"
         }
         if controller.guardian.rule(source).staysAwake {
             return "Nap stops holding sleep off \(source.label.lowercased()): sudo -n pmset -a disablesleep 0"
