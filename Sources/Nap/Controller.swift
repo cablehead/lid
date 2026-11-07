@@ -58,6 +58,7 @@ final class Controller: NSObject, ObservableObject {
         let menu = NSMenu()
         menu.addItem(item("Show Me…", #selector(menuShow)))
         menu.addItem(.separator())
+        menu.addItem(item("Uninstall Nap…", #selector(uninstall)))
         menu.addItem(item("Quit Nap", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
         status.menu = menu
         statusItem = status
@@ -210,6 +211,21 @@ final class Controller: NSObject, ObservableObject {
         }
         message = Shell.admin(script, prompt: "Nap wants to add \(Sudoers.path).").map { "Not installed. \($0)" }
         refresh()
+    }
+
+    /// Deleting an app runs nothing, so Nap's permission would outlive it.
+    /// This takes it back (sleep on, the sudoers file gone), then quits, so
+    /// the app can go to the Trash with nothing left behind.
+    @objc func uninstall() {
+        guard !readOnly else { return }
+        if FileManager.default.fileExists(atPath: Sudoers.path) {
+            if let error = Shell.admin(Sudoers.removeScript, prompt: "Nap wants to remove \(Sudoers.path).") {
+                message = "Not removed. \(error)"
+                showWindow()
+                return
+            }
+        }
+        NSApp.terminate(nil)
     }
 
     // MARK: Menu bar
