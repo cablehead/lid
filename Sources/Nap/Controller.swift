@@ -18,6 +18,7 @@ final class Controller: NSObject, ObservableObject {
     private let defaults = UserDefaults.standard
     private var statusItem: NSStatusItem?
     private var timer: DispatchSourceTimer?
+    private var shownLabel: String?
     private var signalSources: [DispatchSourceSignal] = []
     private var window: NSWindow?
     private lazy var lid = LidMonitor { [weak self] closed in self?.send(.lid(closed: closed)); self?.refreshIfShown() }
@@ -238,6 +239,10 @@ final class Controller: NSObject, ObservableObject {
         case .awake: ("hourglass", "Nap: lid closed, counting down")
         case .stopped: ("moon.zzz.fill", "Nap: put the Mac to sleep")
         }
+        // Power events arrive every few seconds. Setting the tooltip again while it
+        // is showing strands it on screen, so touch the button only on a change.
+        guard label != shownLabel else { return }
+        shownLabel = label
         statusItem?.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
         statusItem?.button?.toolTip = label
     }
