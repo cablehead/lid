@@ -239,12 +239,11 @@ final class Controller: NSObject, ObservableObject {
         case .awake: ("hourglass", "Nap: lid closed, counting down")
         case .stopped: ("moon.zzz.fill", "Nap: put the Mac to sleep")
         }
-        // Power events arrive every few seconds. Setting the tooltip again while it
-        // is showing strands it on screen, so touch the button only on a change.
+        // No tooltip: Nap never comes to the front, and its hover label sometimes
+        // stayed on screen after the pointer left. The label still reaches VoiceOver.
         guard label != shownLabel else { return }
         shownLabel = label
         statusItem?.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
-        statusItem?.button?.toolTip = label
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "", target: AnyObject? = nil) -> NSMenuItem {
