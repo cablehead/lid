@@ -1,5 +1,5 @@
 import Foundation
-import NapCore
+import ClamshellCore
 
 enum Shell {
     struct Result {
@@ -31,14 +31,14 @@ enum Shell {
         run("/usr/bin/pmset", arguments).output
     }
 
-    /// Runs one of the commands allowed by Nap's sudoers file, never asking for
+    /// Runs one of the commands allowed by Clamshell's sudoers file, never asking for
     /// a password: `sudo -n` fails instead.
     static func sudo(_ command: String) -> Result {
         run("/usr/bin/sudo", Sudoers.sudoArguments(command))
     }
 
     /// Runs a shell script as root through the standard macOS admin prompt.
-    /// Returns nil on success, or the error to show. Nap never sees the password.
+    /// Returns nil on success, or the error to show. Clamshell never sees the password.
     @MainActor
     static func admin(_ shell: String, prompt: String) -> String? {
         let source = Sudoers.appleScript(shell: shell, prompt: prompt)

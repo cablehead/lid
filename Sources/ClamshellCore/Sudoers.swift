@@ -4,9 +4,9 @@ import Foundation
 /// three `pmset` commands as root without a password, so the lid timer never
 /// needs a password prompt.
 public enum Sudoers {
-    public static let path = "/private/etc/sudoers.d/nap"
+    public static let path = "/private/etc/sudoers.d/clamshell"
 
-    /// The only commands the file allows, exactly as Nap runs them.
+    /// The only commands the file allows, exactly as Clamshell runs them.
     public static let commands = [
         "/usr/bin/pmset -a disablesleep 0",
         "/usr/bin/pmset -a disablesleep 1",
@@ -27,7 +27,7 @@ public enum Sudoers {
     public static func contents(userName: String) throws -> String {
         guard isSafe(userName: userName) else { throw Failure.unsafeUserName(userName) }
         return """
-        # Written by Nap. Lets \(userName) run only these commands as root, without a password.
+        # Written by Clamshell. Lets \(userName) run only these commands as root, without a password.
         \(userName) ALL = (root) NOPASSWD: \(commands.joined(separator: ", "))
 
         """
@@ -41,7 +41,7 @@ public enum Sudoers {
         return [
             "set -e",
             "/bin/mkdir -p /private/etc/sudoers.d",
-            "tmp=$(/usr/bin/mktemp /private/etc/sudoers.d/nap.XXXXXX)",
+            "tmp=$(/usr/bin/mktemp \(path).XXXXXX)",
             "trap '/bin/rm -f \"$tmp\"' EXIT",
             "echo \(body) | /usr/bin/base64 -D > \"$tmp\"",
             "/usr/sbin/chown root:wheel \"$tmp\"",

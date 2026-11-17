@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import NapCore
+@testable import ClamshellCore
 
 /// Drives a LidGuard with times in minutes from a fixed start.
 private struct Run {
@@ -222,7 +222,7 @@ private let sleepActions: [LidGuard.Action] = [.cancelTimer, .disableSleep(false
 
     // MARK: Quit
 
-    @Test func quitRestoresDisableSleepWheneverNapHoldsIt() {
+    @Test func quitRestoresDisableSleepWheneverClamshellHoldsIt() {
         for setup in 0...2 {
             var r = Run(ac: .stayAwake(minutes: nil))
             _ = r.g.start()
@@ -234,7 +234,7 @@ private let sleepActions: [LidGuard.Action] = [.cancelTimer, .disableSleep(false
         }
     }
 
-    @Test func quitAfterNapPutItToSleepHasNothingToRestore() {
+    @Test func quitAfterClamshellPutItToSleepHasNothingToRestore() {
         var r = Run()
         _ = r.g.start()
         _ = r.send(.lid(closed: true))

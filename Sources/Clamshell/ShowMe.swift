@@ -1,4 +1,4 @@
-import NapCore
+import ClamshellCore
 import SwiftUI
 
 /// The Show me window: one table, power source by lid.
@@ -18,7 +18,7 @@ struct ShowMe: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // What Nap is, and the question the table answers.
+            // What Clamshell is, and the question the table answers.
             VStack(alignment: .leading, spacing: 4) {
                 Text("When does your Mac go to sleep?").font(.title3.weight(.semibold))
                 Text("When you stop using it, your Mac turns the display off after a while, and only then goes to sleep, unless an app is keeping it awake. Being plugged in, and closing the lid, change what happens, so this table has a box for each case: plugged in or on battery, lid open or closed. Click Change in a box to choose what happens there.")
@@ -221,7 +221,7 @@ struct CellChoices: View {
             }
 
             if needsPermission {
-                Text("Nap needs your password once, so it can turn sleep off and back on by itself.")
+                Text("Clamshell needs your password once, so it can turn sleep off and back on by itself.")
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -277,7 +277,7 @@ struct CellChoices: View {
             return "Now: sudo -n pmset -a disablesleep 1\nAfter \(Table.minutes(minutes)): disablesleep 0, then pmset sleepnow"
         }
         if controller.guardian.rule(source).staysAwake {
-            return "Nap stops holding sleep off \(source.label.lowercased()): sudo -n pmset -a disablesleep 0"
+            return "Clamshell stops holding sleep off \(source.label.lowercased()): sudo -n pmset -a disablesleep 0"
         }
         return "Nothing to run: macOS already does this."
     }

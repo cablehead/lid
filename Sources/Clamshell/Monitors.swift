@@ -2,7 +2,7 @@ import AppKit
 import IOKit
 import IOKit.ps
 import IOKit.pwr_mgt
-import NapCore
+import ClamshellCore
 
 /// iokit_family_msg(sub_iokit_powermanagement, 0x100): IOPMrootDomain sends it
 /// to general-interest clients when the lid opens or closes.
@@ -32,7 +32,7 @@ final class LidMonitor {
 
     func start() {
         guard root != 0, let port = IONotificationPortCreate(kIOMainPortDefault) else {
-            NSLog("Nap: IOPMrootDomain not found; lid changes will not be seen")
+            NSLog("Clamshell: IOPMrootDomain not found; lid changes will not be seen")
             return
         }
         self.port = port
@@ -43,7 +43,7 @@ final class LidMonitor {
             let monitor = Unmanaged<LidMonitor>.fromOpaque(refcon).takeUnretainedValue()
             MainActor.assumeIsolated { monitor.changed() }
         }, refcon, &notifier)
-        if status != KERN_SUCCESS { NSLog("Nap: interest notification failed: \(status)") }
+        if status != KERN_SUCCESS { NSLog("Clamshell: interest notification failed: \(status)") }
     }
 
     /// Also called on wake and on screen changes (the built-in display goes
@@ -91,7 +91,7 @@ final class PowerMonitor {
             let monitor = Unmanaged<PowerMonitor>.fromOpaque(refcon).takeUnretainedValue()
             MainActor.assumeIsolated { monitor.onChange(PowerMonitor.read()) }
         }, refcon)?.takeRetainedValue() else {
-            NSLog("Nap: power source notifications unavailable")
+            NSLog("Clamshell: power source notifications unavailable")
             return
         }
         self.source = source

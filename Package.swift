@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "Nap",
+    name: "Clamshell",
     platforms: [.macOS(.v14)],
     targets: [
-        .target(name: "NapCore"),
-        .executableTarget(name: "Nap", dependencies: ["NapCore"]),
+        .target(name: "ClamshellCore"),
+        .executableTarget(name: "Clamshell", dependencies: ["ClamshellCore"]),
         .testTarget(
-            name: "NapCoreTests",
-            dependencies: ["NapCore"],
+            name: "ClamshellCoreTests",
+            dependencies: ["ClamshellCore"],
             resources: [.copy("Fixtures")]
         ),
     ]
