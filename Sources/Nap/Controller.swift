@@ -17,6 +17,7 @@ final class Controller: NSObject, ObservableObject {
 
     private let defaults = UserDefaults.standard
     private var statusItem: NSStatusItem?
+    private lazy var loginItem = LoginItem()
     private var timer: DispatchSourceTimer?
     private var shownLabel: String?
     private var signalSources: [DispatchSourceSignal] = []
@@ -59,6 +60,7 @@ final class Controller: NSObject, ObservableObject {
         let menu = NSMenu()
         menu.addItem(item("Show Me…", #selector(menuShow)))
         menu.addItem(.separator())
+        if !readOnly { menu.addItem(loginItem.menuItem) }
         menu.addItem(item("Uninstall Nap…", #selector(uninstall)))
         menu.addItem(item("Quit Nap", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
         status.menu = menu
@@ -215,7 +217,7 @@ final class Controller: NSObject, ObservableObject {
     }
 
     /// Deleting an app runs nothing, so Nap's permission would outlive it.
-    /// This takes it back (sleep on, the sudoers file gone), then quits, so
+    /// This takes it back (sleep on, the sudoers file gone, no login item), then quits, so
     /// the app can go to the Trash with nothing left behind.
     @objc func uninstall() {
         guard !readOnly else { return }
@@ -226,6 +228,7 @@ final class Controller: NSObject, ObservableObject {
                 return
             }
         }
+        loginItem.remove()
         NSApp.terminate(nil)
     }
 

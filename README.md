@@ -14,7 +14,7 @@ Each cell is read from `pmset -g custom` (and Nap's own lid rules). Cells that d
 
 Below the table, only when it applies: the countdown ("Closed 14:02 → sleeps 15:02") and apps keeping the Mac awake right now.
 
-The menu has Show Me… and Quit Nap. The icon shows the state.
+The menu has Show Me…, Open at Login, Uninstall Nap… and Quit Nap. Open at Login is turned on the first time Nap.app runs; untick it to stop. The icon shows the state.
 
 ## Build and run
 
