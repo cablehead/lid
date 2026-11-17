@@ -19,6 +19,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /// Opening Nap again (from Finder, Spotlight or `open`) shows the window,
+    /// so it can be reached when a full menu bar hides the icon.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        controller.showWindow()
+        return false
+    }
 }
 
 let app = NSApplication.shared
