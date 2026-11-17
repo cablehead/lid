@@ -24,6 +24,8 @@ swift build -c release
 .build/release/Nap
 ```
 
+To share it, `./dmg.sh` builds `.build/dist/Nap.dmg`: Nap.app for Apple silicon and Intel, signed with your Developer ID. With an App Store Connect API key in `ASC_KEY_ID`, `ASC_ISSUER` and `ASC_P8`, it is notarized too, so it opens on other Macs without a warning. The app keeps its settings under `stream.cross.nap`, not `Nap` as the bare binary does.
+
 ## How the lid rules work
 
 macOS sleeps the moment the lid closes unless `pmset -a disablesleep 1` is already set. So:
