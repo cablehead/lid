@@ -235,18 +235,18 @@ final class Controller: NSObject, ObservableObject {
     // MARK: Menu bar
 
     private func updateIcon() {
-        let (symbol, label): (String, String) = switch guardian.phase {
-        case .idle where guardian.sleepDisabled: ("sun.max", "Clamshell: lid closed stays awake")
-        case .idle: ("moon.zzz", "Clamshell")
-        case .awake(_, nil): ("powerplug", "Clamshell: lid closed, staying awake")
-        case .awake: ("hourglass", "Clamshell: lid closed, counting down")
-        case .stopped: ("moon.zzz.fill", "Clamshell: put the Mac to sleep")
+        let (filled, label): (Bool, String) = switch guardian.phase {
+        case .idle where guardian.sleepDisabled: (true, "Clamshell: lid closed stays awake")
+        case .idle: (false, "Clamshell")
+        case .awake(_, nil): (true, "Clamshell: lid closed, staying awake")
+        case .awake: (true, "Clamshell: lid closed, counting down")
+        case .stopped: (false, "Clamshell: put the Mac to sleep")
         }
         // No tooltip: Clamshell never comes to the front, and its hover label sometimes
         // stayed on screen after the pointer left. The label still reaches VoiceOver.
         guard label != shownLabel else { return }
         shownLabel = label
-        statusItem?.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
+        statusItem?.button?.image = ClamGlyph.image(filled: filled, label: label)
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "", target: AnyObject? = nil) -> NSMenuItem {

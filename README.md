@@ -14,7 +14,7 @@ Each cell is read from `pmset -g custom` (and Clamshell's own lid rules). Cells 
 
 Below the table, only when it applies: the countdown ("Closed 14:02 → sleeps 15:02") and apps keeping the Mac awake right now.
 
-The menu has Show Me…, Open at Login, Uninstall Clamshell… and Quit Clamshell. Open at Login is turned on the first time Clamshell.app runs; untick it to stop. The icon shows the state.
+The menu has Show Me…, Open at Login, Uninstall Clamshell… and Quit Clamshell. Open at Login is turned on the first time Clamshell.app runs; untick it to stop. The icon is a scallop shell: outlined when the Mac will sleep as usual, filled while Clamshell keeps it awake or will when the lid shuts.
 
 ## Build and run
 
