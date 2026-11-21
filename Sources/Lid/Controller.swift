@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Owns the lid rules, the monitors and the menu bar item.
 @MainActor
-final class Controller: NSObject, ObservableObject {
+final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
     @Published private(set) var settings = PowerSettings(sources: [:])
     @Published private(set) var assertions = Assertions()
     @Published private(set) var guardian: LidGuard
@@ -18,6 +18,9 @@ final class Controller: NSObject, ObservableObject {
     private let defaults = UserDefaults.standard
     private var statusItem: NSStatusItem?
     private lazy var loginItem = LoginItem()
+    /// Whether Lid may turn sleep off, read each time the menu opens; while it
+    /// may not, choosing it shows the admin prompt that allows it.
+    private lazy var permissionItem = item("", #selector(menuAllow))
     private var timer: DispatchSourceTimer?
     private var shownLabel: String?
     private var signalSources: [DispatchSourceSignal] = []
@@ -60,6 +63,7 @@ final class Controller: NSObject, ObservableObject {
         let menu = NSMenu()
         menu.addItem(item("Show Me…", #selector(menuShow)))
         menu.addItem(.separator())
+        if !readOnly { menu.addItem(permissionItem) }
         if !readOnly { menu.addItem(loginItem.menuItem) }
         menu.addItem(item("Uninstall Lid…", #selector(uninstall)))
         menu.addItem(item("Quit Lid", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
@@ -256,6 +260,20 @@ final class Controller: NSObject, ObservableObject {
     }
 
     @objc private func menuShow() { showWindow() }
+
+    @objc private func menuAllow() {
+        allow()
+        // Cancelled or failed: the window says why.
+        if message != nil { showWindow() }
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard menuItem === permissionItem else { return true }
+        hasPermission = FileManager.default.fileExists(atPath: Sudoers.path)
+        menuItem.title = hasPermission ? "Allowed to Turn Sleep Off" : "Allow Lid to Turn Sleep Off…"
+        menuItem.state = hasPermission ? .on : .off
+        return !hasPermission
+    }
 
     // MARK: Show me window
 
