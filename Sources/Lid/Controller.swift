@@ -268,12 +268,21 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
     private func explainPermission() -> Bool {
         let alert = NSAlert()
         alert.messageText = "Lid needs your password once"
-        alert.informativeText = """
-            macOS only lets an administrator keep the Mac awake with the lid closed. \
-            Enter your password once, and Lid won't ask again each time you close the lid.
-
-            Lid can use this only to turn sleep off and back on. Uninstall Lid… takes it back.
-            """
+        alert.informativeText = "Turning sleep off with the lid closed needs root. Your password adds "
+            + "\(Sudoers.path.replacingOccurrences(of: "/private", with: "")), which lets Lid run exactly "
+            + "these commands as root without asking again:"
+        let commands = NSTextField(wrappingLabelWithString: Sudoers.commands.joined(separator: "\n"))
+        commands.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+        commands.isSelectable = true
+        let undo = NSTextField(wrappingLabelWithString: "Uninstall Lid… in the menu removes the file.")
+        undo.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        let stack = NSStackView(views: [commands, undo])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 10
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 0)
+        stack.frame = NSRect(x: 0, y: 0, width: 260, height: stack.fittingSize.height)
+        alert.accessoryView = stack
         alert.addButton(withTitle: "Continue…")
         alert.addButton(withTitle: "Cancel")
         NSApp.activate()
