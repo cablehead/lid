@@ -14,13 +14,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // Put sleep back if Clamshell holds it off.
+        // Put sleep back if Lid holds it off.
         controller.quit()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
-    /// Opening Clamshell again (from Finder, Spotlight or `open`) shows the window,
+    /// Opening Lid again (from Finder, Spotlight or `open`) shows the window,
     /// so it can be reached when a full menu bar hides the icon.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         controller.showWindow()
@@ -35,9 +35,9 @@ app.delegate = delegate
 // An accessory app has no visible main menu; this one is for Cmd+Q, Cmd+W
 // and text editing keys in the window.
 let main = NSMenu()
-let appMenu = NSMenu(title: "Clamshell")
-appMenu.addItem(withTitle: "Quit Clamshell", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-main.addItem(withTitle: "Clamshell", action: nil, keyEquivalent: "").submenu = appMenu
+let appMenu = NSMenu(title: "Lid")
+appMenu.addItem(withTitle: "Quit Lid", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+main.addItem(withTitle: "Lid", action: nil, keyEquivalent: "").submenu = appMenu
 let edit = NSMenu(title: "Edit")
 edit.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
 edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")

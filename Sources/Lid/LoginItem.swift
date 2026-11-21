@@ -2,7 +2,7 @@ import AppKit
 import ServiceManagement
 
 /// Open at Login, as a menu item with a check mark. It is turned on once, the
-/// first time Clamshell runs as an .app; after that it is the user's choice, and
+/// first time Lid runs as an .app; after that it is the user's choice, and
 /// System Settings › General › Login Items shows the same switch.
 @MainActor
 final class LoginItem: NSObject, NSMenuItemValidation {

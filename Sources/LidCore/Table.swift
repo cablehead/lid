@@ -44,7 +44,7 @@ public enum Table {
         return max(sleep, display)
     }
 
-    /// `foreignDisableSleep`: `disablesleep 1` is set, and not by Clamshell.
+    /// `foreignDisableSleep`: `disablesleep 1` is set, and not by Lid.
     public static func openCell(_ source: PowerSource, settings: PowerSettings, rule: LidRule,
                                 foreignDisableSleep: Bool) -> Cell {
         guard let s = settings.sources[source] else { return Cell(text: "unknown", detail: nil, isDefault: false) }
@@ -52,7 +52,7 @@ public enum Table {
         let display = s.displaySleep ?? 0
         if foreignDisableSleep {
             return Cell(text: "never sleeps (disablesleep 1)",
-                        detail: "sleep is turned off for the whole Mac, not by Clamshell", isDefault: false)
+                        detail: "sleep is turned off for the whole Mac, not by Lid", isDefault: false)
         }
         guard let idle = idleMinutes(s) else {
             if display == 0 {
@@ -64,9 +64,9 @@ public enum Table {
             return Cell(text: "never sleeps (display off after \(minutes(display)))", detail: nil, isDefault: false)
         }
         if rule.staysAwake {
-            // Clamshell holds disablesleep 1 on this source so the lid can close awake.
+            // Lid holds disablesleep 1 on this source so the lid can close awake.
             return Cell(text: "never sleeps (held by the lid rule)",
-                        detail: "Clamshell keeps sleep off so the lid can close awake", isDefault: false)
+                        detail: "Lid keeps sleep off so the lid can close awake", isDefault: false)
         }
         let detail = sleep > display ? "display turns off after \(minutes(display))" : nil
         return Cell(text: "sleeps after \(minutes(idle)) idle", detail: detail,
@@ -77,7 +77,7 @@ public enum Table {
                                   foreignDisableSleep: Bool) -> Cell {
         if foreignDisableSleep {
             return Cell(text: "stays awake (disablesleep 1)",
-                        detail: "sleep is turned off for the whole Mac, not by Clamshell", isDefault: false)
+                        detail: "sleep is turned off for the whole Mac, not by Lid", isDefault: false)
         }
         let early = source == .battery
             ? "sleeps early if hot or battery under \(batteryFloor)%"
@@ -92,7 +92,7 @@ public enum Table {
         }
     }
 
-    /// The countdown bar, only while Clamshell keeps the Mac awake with the lid closed.
+    /// The countdown bar, only while Lid keeps the Mac awake with the lid closed.
     public static func bar(_ guardian: LidGuard, timeZone: TimeZone = .current) -> [String]? {
         guard case .awake(let closedAt, let deadline) = guardian.phase else { return nil }
         let f = DateFormatter()

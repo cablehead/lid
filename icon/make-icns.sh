@@ -1,9 +1,9 @@
 #!/bin/sh
-# Makes Clamshell.icns from clamshell.svg: renders the SVG at each iconset size
+# Makes Lid.icns from lid.svg: renders the SVG at each iconset size
 # (macOS draws SVG natively), then runs iconutil. ./dmg.sh copies the result.
 set -eu
 cd "$(dirname "$0")"
-set_dir=$(mktemp -d)/Clamshell.iconset
+set_dir=$(mktemp -d)/Lid.iconset
 mkdir -p "$set_dir"
 cat > "$set_dir/../render.swift" <<'SWIFT'
 import AppKit
@@ -19,8 +19,8 @@ try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWith
 SWIFT
 swiftc -o "$set_dir/../render" "$set_dir/../render.swift"
 for s in 16 32 128 256 512; do
-  "$set_dir/../render" clamshell.svg "$set_dir/icon_${s}x${s}.png" $s
-  "$set_dir/../render" clamshell.svg "$set_dir/icon_${s}x${s}@2x.png" $((s * 2))
+  "$set_dir/../render" lid.svg "$set_dir/icon_${s}x${s}.png" $s
+  "$set_dir/../render" lid.svg "$set_dir/icon_${s}x${s}@2x.png" $((s * 2))
 done
-iconutil -c icns "$set_dir" -o Clamshell.icns
-echo icon/Clamshell.icns
+iconutil -c icns "$set_dir" -o Lid.icns
+echo icon/Lid.icns

@@ -1,5 +1,5 @@
 import AppKit
-import ClamshellCore
+import LidCore
 import SwiftUI
 
 /// Owns the lid rules, the monitors and the menu bar item.
@@ -12,7 +12,7 @@ final class Controller: NSObject, ObservableObject {
     @Published var message: String?
 
     /// --snapshot: render only. No root commands, no admin prompts, nothing
-    /// written to the defaults (shared with a running Clamshell).
+    /// written to the defaults (shared with a running Lid).
     let readOnly: Bool
 
     private let defaults = UserDefaults.standard
@@ -25,7 +25,7 @@ final class Controller: NSObject, ObservableObject {
     private lazy var lid = LidMonitor { [weak self] closed in self?.send(.lid(closed: closed)); self?.refreshIfShown() }
     private lazy var power = PowerMonitor { [weak self] reading in self?.power(reading) }
 
-    /// True while disablesleep 1 is set by Clamshell, kept across launches so a
+    /// True while disablesleep 1 is set by Lid, kept across launches so a
     /// crash or forced quit is undone at the next launch.
     private var weDisabledSleep: Bool {
         get { defaults.bool(forKey: "weDisabledSleep") }
@@ -61,8 +61,8 @@ final class Controller: NSObject, ObservableObject {
         menu.addItem(item("Show Me…", #selector(menuShow)))
         menu.addItem(.separator())
         if !readOnly { menu.addItem(loginItem.menuItem) }
-        menu.addItem(item("Uninstall Clamshell…", #selector(uninstall)))
-        menu.addItem(item("Quit Clamshell", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
+        menu.addItem(item("Uninstall Lid…", #selector(uninstall)))
+        menu.addItem(item("Quit Lid", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
         status.menu = menu
         statusItem = status
         updateIcon()
@@ -110,7 +110,7 @@ final class Controller: NSObject, ObservableObject {
         if window?.isVisible == true { refresh() }
     }
 
-    /// `disablesleep 1` is set, and not by Clamshell.
+    /// `disablesleep 1` is set, and not by Lid.
     var foreignDisableSleep: Bool { settings.sleepDisabled && !guardian.sleepDisabled }
 
     // MARK: Lid rules
@@ -162,7 +162,7 @@ final class Controller: NSObject, ObservableObject {
                                         batteryPercent: guardian.batteryPercent, thermal: guardian.thermal)
                     timer?.cancel()
                     timer = nil
-                    message = "Clamshell could not turn sleep off, so the lid closed \(source.label.lowercased()) rule "
+                    message = "Lid could not turn sleep off, so the lid closed \(source.label.lowercased()) rule "
                         + "is back to sleep at once. \(message ?? "")"
                     return
                 }
@@ -177,7 +177,7 @@ final class Controller: NSObject, ObservableObject {
     private func rootRun(_ action: LidGuard.Action) -> Bool {
         guard let command = action.pmset else { return true }
         if readOnly {
-            NSLog("Clamshell (read-only): would run sudo -n \(command)")
+            NSLog("Lid (read-only): would run sudo -n \(command)")
             return true
         }
         let result = Shell.sudo(command)
@@ -185,7 +185,7 @@ final class Controller: NSObject, ObservableObject {
             if case .disableSleep(let on) = action { weDisabledSleep = on }
             return true
         }
-        NSLog("Clamshell: \(command) failed: \(result.output)")
+        NSLog("Lid: \(command) failed: \(result.output)")
         message = "\"sudo -n \(command)\" failed: \(result.output.trimmingCharacters(in: .whitespacesAndNewlines))"
         return false
     }
@@ -198,7 +198,7 @@ final class Controller: NSObject, ObservableObject {
 
     func apply(_ goal: Goal) {
         guard !readOnly else { return }
-        message = Shell.admin(goal.rootShell, prompt: "Clamshell wants to run: \(goal.command)")
+        message = Shell.admin(goal.rootShell, prompt: "Lid wants to run: \(goal.command)")
         refresh()
     }
 
@@ -209,20 +209,20 @@ final class Controller: NSObject, ObservableObject {
     func allow() {
         guard !readOnly else { return }
         guard let script = try? Sudoers.installScript(userName: NSUserName()) else {
-            message = "Your user name \"\(NSUserName())\" needs escaping in sudoers, so Clamshell will not write it."
+            message = "Your user name \"\(NSUserName())\" needs escaping in sudoers, so Lid will not write it."
             return
         }
-        message = Shell.admin(script, prompt: "Clamshell wants to add \(Sudoers.path).").map { "Not installed. \($0)" }
+        message = Shell.admin(script, prompt: "Lid wants to add \(Sudoers.path).").map { "Not installed. \($0)" }
         refresh()
     }
 
-    /// Deleting an app runs nothing, so Clamshell's permission would outlive it.
+    /// Deleting an app runs nothing, so Lid's permission would outlive it.
     /// This takes it back (sleep on, the sudoers file gone, no login item), then quits, so
     /// the app can go to the Trash with nothing left behind.
     @objc func uninstall() {
         guard !readOnly else { return }
         if FileManager.default.fileExists(atPath: Sudoers.path) {
-            if let error = Shell.admin(Sudoers.removeScript, prompt: "Clamshell wants to remove \(Sudoers.path).") {
+            if let error = Shell.admin(Sudoers.removeScript, prompt: "Lid wants to remove \(Sudoers.path).") {
                 message = "Not removed. \(error)"
                 showWindow()
                 return
@@ -236,13 +236,13 @@ final class Controller: NSObject, ObservableObject {
 
     private func updateIcon() {
         let (filled, label): (Bool, String) = switch guardian.phase {
-        case .idle where guardian.sleepDisabled: (true, "Clamshell: lid closed stays awake")
-        case .idle: (false, "Clamshell")
-        case .awake(_, nil): (true, "Clamshell: lid closed, staying awake")
-        case .awake: (true, "Clamshell: lid closed, counting down")
-        case .stopped: (false, "Clamshell: put the Mac to sleep")
+        case .idle where guardian.sleepDisabled: (true, "Lid: stays awake when closed")
+        case .idle: (false, "Lid")
+        case .awake(_, nil): (true, "Lid: closed, staying awake")
+        case .awake: (true, "Lid: closed, counting down")
+        case .stopped: (false, "Lid: put the Mac to sleep")
         }
-        // No tooltip: Clamshell never comes to the front, and its hover label sometimes
+        // No tooltip: Lid never comes to the front, and its hover label sometimes
         // stayed on screen after the pointer left. The label still reaches VoiceOver.
         guard label != shownLabel else { return }
         shownLabel = label
@@ -266,7 +266,7 @@ final class Controller: NSObject, ObservableObject {
                 snapshotCell: readOnly ? .init(source: .battery, lidClosed: true) : nil))
             host.sizingOptions = .preferredContentSize
             let w = NSWindow(contentViewController: host)
-            w.title = "Clamshell"
+            w.title = "Lid"
             w.styleMask = [.titled, .closable, .miniaturizable]
             w.isReleasedWhenClosed = false
             w.center()
@@ -319,7 +319,7 @@ final class Controller: NSObject, ObservableObject {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [self] in popoverSnapshot(into: dir) }
             if let button = statusItem?.button, let bw = button.window {
-                NSLog("Clamshell: status item at \(bw.frame)")
+                NSLog("Lid: status item at \(bw.frame)")
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { NSApp.terminate(nil) }
         }
@@ -333,10 +333,10 @@ final class Controller: NSObject, ObservableObject {
         for (i, p) in pops.enumerated() {
             p.alphaValue = 0
             guard let v = p.contentView else { continue }
-            NSLog("Clamshell: popover window \(p.frame), content \(v.frame.size), wants \(v.fittingSize)")
+            NSLog("Lid: popover window \(p.frame), content \(v.frame.size), wants \(v.fittingSize)")
             Self.png(v, to: dir + "/show-me-popover-\(i).png")
         }
-        if pops.isEmpty { NSLog("Clamshell: no popover window") }
+        if pops.isEmpty { NSLog("Lid: no popover window") }
     }
 
     private static func png(_ view: NSView, to path: String) {

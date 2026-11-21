@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "Clamshell",
+    name: "Lid",
     platforms: [.macOS(.v14)],
     targets: [
-        .target(name: "ClamshellCore"),
-        .executableTarget(name: "Clamshell", dependencies: ["ClamshellCore"]),
+        .target(name: "LidCore"),
+        .executableTarget(name: "Lid", dependencies: ["LidCore"]),
         .testTarget(
-            name: "ClamshellCoreTests",
-            dependencies: ["ClamshellCore"],
+            name: "LidCoreTests",
+            dependencies: ["LidCore"],
             resources: [.copy("Fixtures")]
         ),
     ]

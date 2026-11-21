@@ -1,7 +1,7 @@
 import AppKit
 
 /// The menu bar icon: a scallop shell. Outlined, the Mac sleeps as macOS
-/// would when the lid shuts; filled, Clamshell is keeping it awake.
+/// would when the lid shuts; filled, Lid is keeping it awake.
 enum ClamGlyph {
     static func image(filled: Bool, label: String) -> NSImage {
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { _ in

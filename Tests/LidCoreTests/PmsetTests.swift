@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import ClamshellCore
+@testable import LidCore
 
 @Suite struct PmsetTests {
     let settings = PowerSettings.parse(custom: Fixture.text("pmset-custom"), systemWide: Fixture.text("pmset-g"))
@@ -88,7 +88,7 @@ import Foundation
         #expect(cell(1, 10) == Table.Cell(text: "sleeps after 10 min idle", detail: nil, isDefault: true))
         #expect(cell(30, 10).detail == "display turns off after 10 min")
         #expect(cell(0, 0).detail == nil)
-        #expect(cell(1, 10, rule: .stayAwake(minutes: 5)).detail == "Clamshell keeps sleep off so the lid can close awake")
+        #expect(cell(1, 10, rule: .stayAwake(minutes: 5)).detail == "Lid keeps sleep off so the lid can close awake")
         #expect(cell(1, 2, .battery).isDefault)
         #expect(!cell(1, 10, .battery).isDefault)
         #expect(cell(30, 10).text == "sleeps after 30 min idle")
@@ -171,7 +171,7 @@ import Foundation
 @Suite struct SudoersTests {
     @Test func exactContents() throws {
         #expect(try Sudoers.contents(userName: "you") == """
-        # Written by Clamshell. Lets you run only these commands as root, without a password.
+        # Written by Lid. Lets you run only these commands as root, without a password.
         you ALL = (root) NOPASSWD: /usr/bin/pmset -a disablesleep 0, /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset sleepnow
 
         """)
@@ -195,12 +195,12 @@ import Foundation
         let visudo = script.range(of: "visudo -cf")!
         let mv = script.range(of: "/bin/mv -f")!
         #expect(visudo.lowerBound < mv.lowerBound)
-        #expect(script.contains("mktemp /private/etc/sudoers.d/clamshell.XXXXXX"))
+        #expect(script.contains("mktemp /private/etc/sudoers.d/lid.XXXXXX"))
         #expect(script.hasPrefix("set -e\n"))
     }
 
     @Test func removeTurnsSleepBackOnFirst() {
-        #expect(Sudoers.removeScript == "/usr/bin/pmset -a disablesleep 0\n/bin/rm -f /private/etc/sudoers.d/clamshell")
+        #expect(Sudoers.removeScript == "/usr/bin/pmset -a disablesleep 0\n/bin/rm -f /private/etc/sudoers.d/lid")
     }
 
     @Test func sudoIsNonInteractiveAndMatchesTheRule() {
@@ -216,7 +216,7 @@ import Foundation
 
     @Test func appleScriptQuoting() {
         #expect(Sudoers.quote("a \"b\" \\c\nd") == "\"a \\\"b\\\" \\\\c\\nd\"")
-        #expect(Sudoers.appleScript(shell: "/usr/bin/pmset -c sleep 0", prompt: "Clamshell")
-            == "do shell script \"/usr/bin/pmset -c sleep 0\" with prompt \"Clamshell\" with administrator privileges")
+        #expect(Sudoers.appleScript(shell: "/usr/bin/pmset -c sleep 0", prompt: "Lid")
+            == "do shell script \"/usr/bin/pmset -c sleep 0\" with prompt \"Lid\" with administrator privileges")
     }
 }

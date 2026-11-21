@@ -42,7 +42,7 @@ public enum LidRule: Equatable, Sendable {
 ///   lid is closed: sleep.
 /// - Sleep means `disablesleep 0`, then `pmset sleepnow`. When the lid opens,
 ///   `disablesleep` goes back to what the rule wants.
-/// - Quit: `disablesleep 0` if Clamshell set it.
+/// - Quit: `disablesleep 0` if Lid set it.
 public struct LidGuard: Equatable, Sendable {
     public enum Thermal: Int, Comparable, Sendable {
         case nominal, fair, serious, critical
@@ -80,17 +80,17 @@ public struct LidGuard: Equatable, Sendable {
     }
 
     public enum Phase: Equatable, Sendable {
-        /// Lid open, or closed with Clamshell doing nothing (macOS's own behaviour).
+        /// Lid open, or closed with Lid doing nothing (macOS's own behaviour).
         case idle
-        /// Lid closed and kept awake by Clamshell. `deadline` nil: no time limit.
+        /// Lid closed and kept awake by Lid. `deadline` nil: no time limit.
         case awake(closedAt: Date, deadline: Date?)
-        /// Clamshell put the Mac to sleep with the lid closed.
+        /// Lid put the Mac to sleep with the lid closed.
         case stopped(StopReason)
     }
 
     public private(set) var phase: Phase = .idle
     public private(set) var rules: [PowerSource: LidRule]
-    /// True while Clamshell holds `disablesleep 1`.
+    /// True while Lid holds `disablesleep 1`.
     public private(set) var sleepDisabled: Bool
     public private(set) var lidClosed: Bool
     public private(set) var onBattery: Bool
@@ -99,7 +99,7 @@ public struct LidGuard: Equatable, Sendable {
     /// Sleep early under this battery percentage (lid closed, on battery).
     public var batteryFloor: Int
 
-    /// `sleepDisabled`: Clamshell set `disablesleep 1` earlier and it is still set
+    /// `sleepDisabled`: Lid set `disablesleep 1` earlier and it is still set
     /// (after a crash), so `start` can put it back.
     public init(rules: [PowerSource: LidRule] = [:], batteryFloor: Int = 15,
                 sleepDisabled: Bool = false, lidClosed: Bool = false, onBattery: Bool = false,
@@ -143,7 +143,7 @@ public struct LidGuard: Equatable, Sendable {
             guard closed != lidClosed else { return [] }
             lidClosed = closed
             if closed {
-                // Clamshell only acts if it held sleep off; otherwise macOS sleeps.
+                // Lid only acts if it held sleep off; otherwise macOS sleeps.
                 guard sleepDisabled else { return [] }
                 return keepAwake(closedAt: now, now: now)
             }
@@ -182,7 +182,7 @@ public struct LidGuard: Equatable, Sendable {
         return [.disableSleep(want)]
     }
 
-    /// Lid closed, Clamshell holding sleep off: apply the current source's rule.
+    /// Lid closed, Lid holding sleep off: apply the current source's rule.
     private mutating func keepAwake(closedAt: Date, now: Date) -> [Action] {
         if tooHot { return stop(.hot) }
         if batteryLow { return stop(.batteryLow) }
