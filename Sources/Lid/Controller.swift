@@ -267,16 +267,12 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
     /// Why Lid asks for the password, before macOS asks for it. False: cancelled.
     private func explainPermission() -> Bool {
         let alert = NSAlert()
-        alert.messageText = "Let Lid turn sleep off?"
+        alert.messageText = "Lid needs your password once"
         alert.informativeText = """
-            Lid needs your password once, to add \(Sudoers.path.replacingOccurrences(of: "/private", with: "")). \
-            After that it can do these things as root, without asking again, and nothing else:
+            macOS only lets an administrator keep the Mac awake with the lid closed. \
+            Enter your password once, and Lid won't ask again each time you close the lid.
 
-            • keep the Mac awake with the lid closed
-            • let it sleep as usual again
-            • put it to sleep when the time is up
-
-            Uninstall Lid… in the menu removes the file.
+            Lid can use this only to turn sleep off and back on. Uninstall Lid… takes it back.
             """
         alert.addButton(withTitle: "Continue…")
         alert.addButton(withTitle: "Cancel")
