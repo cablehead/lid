@@ -216,6 +216,9 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
             message = "Your user name \"\(NSUserName())\" needs escaping in sudoers, so Lid will not write it."
             return
         }
+        // macOS's admin prompt no longer shows an app's own words, so say
+        // first what the password is for.
+        guard explainPermission() else { return }
         message = Shell.admin(script, prompt: "Lid wants to add \(Sudoers.path).").map { "Not installed. \($0)" }
         refresh()
     }
@@ -260,6 +263,26 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
     }
 
     @objc private func menuShow() { showWindow() }
+
+    /// Why Lid asks for the password, before macOS asks for it. False: cancelled.
+    private func explainPermission() -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Let Lid turn sleep off?"
+        alert.informativeText = """
+            Lid needs your password once, to add \(Sudoers.path.replacingOccurrences(of: "/private", with: "")). \
+            After that it can do these things as root, without asking again, and nothing else:
+
+            • keep the Mac awake with the lid closed
+            • let it sleep as usual again
+            • put it to sleep when the time is up
+
+            Uninstall Lid… in the menu removes the file.
+            """
+        alert.addButton(withTitle: "Continue…")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate()
+        return alert.runModal() == .alertFirstButtonReturn
+    }
 
     @objc private func menuAllow() {
         allow()
