@@ -268,14 +268,15 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
     private func explainPermission() -> Bool {
         let alert = NSAlert()
         alert.messageText = "Lid needs your password once"
-        alert.informativeText = "Turning sleep off with the lid closed needs root. Your password adds "
+        alert.informativeText = "Lid will use your password to create a file, "
             + "\(Sudoers.path.replacingOccurrences(of: "/private", with: "")), which lets Lid run exactly "
             + "these commands as root without asking again:"
         let commands = NSTextField(wrappingLabelWithString: Sudoers.commands.joined(separator: "\n"))
         commands.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
         commands.isSelectable = true
-        let undo = NSTextField(wrappingLabelWithString: "Uninstall Lid… in the menu removes the file.")
+        let undo = NSTextField(wrappingLabelWithString: "To remove the file, choose Uninstall Lid… in the menu.")
         undo.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        undo.preferredMaxLayoutWidth = 240
         let stack = NSStackView(views: [commands, undo])
         stack.orientation = .vertical
         stack.alignment = .leading
