@@ -27,6 +27,19 @@ struct ShowMe: View {
             }
             .frame(maxWidth: Self.labelWidth + 2 * Self.cellWidth + 20, alignment: .leading)
 
+            // Until the permission is given, nothing Lid sets for a closed lid can happen.
+            if !controller.hasPermission {
+                HStack(spacing: 12) {
+                    Text("Lid can't keep your Mac awake with the lid closed until you allow it.")
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Allow…") { controller.allow() }
+                }
+                .padding(10)
+                .frame(maxWidth: Self.labelWidth + 2 * Self.cellWidth + 20, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.12)))
+            }
+
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     Color.clear.frame(width: Self.labelWidth, height: 1)

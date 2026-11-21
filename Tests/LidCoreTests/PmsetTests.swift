@@ -83,8 +83,8 @@ import Foundation
     @Test func stayAwakeRuleNotAllowedYet() {
         let c = Table.closedCell(.battery, rule: .stayAwake(minutes: 60), batteryFloor: 15,
                                  foreignDisableSleep: false, allowed: false)
-        #expect(c.text == "sleeps at once")
-        #expect(c.detail?.contains("Allow Lid to Turn Sleep Off…") == true)
+        #expect(c == Table.Cell(text: "sleeps at once", detail: "once Lid is allowed: stays awake 1 hour, then sleeps",
+                                isDefault: true))
         #expect(Table.closedCell(.ac, rule: .sleep, batteryFloor: 15, foreignDisableSleep: false, allowed: false)
             == Table.Cell(text: "sleeps at once", detail: nil, isDefault: true))
     }

@@ -84,10 +84,8 @@ public enum Table {
             : "sleeps early if hot"
         // A stay-awake rule Lid may not carry out yet: the Mac sleeps at once.
         if rule.staysAwake && !allowed {
-            return Cell(text: defaultClosedText,
-                        detail: "set to stay awake, but Lid isn't allowed to turn sleep off yet: "
-                            + "choose Allow Lid to Turn Sleep Off… in the menu",
-                        isDefault: false)
+            let later = if case .stayAwake(let m?) = rule { "stays awake \(minutes(m)), then sleeps" } else { "stays awake" }
+            return Cell(text: defaultClosedText, detail: "once Lid is allowed: \(later)", isDefault: true)
         }
         switch rule {
         case .sleep:
