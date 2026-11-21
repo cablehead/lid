@@ -85,7 +85,8 @@ struct ShowMe: View {
         let c = id.lidClosed
             ? Table.closedCell(id.source, rule: controller.guardian.rule(id.source),
                                batteryFloor: controller.guardian.batteryFloor,
-                               foreignDisableSleep: controller.foreignDisableSleep)
+                               foreignDisableSleep: controller.foreignDisableSleep,
+                               allowed: controller.hasPermission)
             : Table.openCell(id.source, settings: controller.settings, rule: controller.guardian.rule(id.source),
                              foreignDisableSleep: controller.foreignDisableSleep)
         return VStack(alignment: .leading, spacing: 3) {

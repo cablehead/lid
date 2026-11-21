@@ -80,6 +80,21 @@ import Foundation
             == "stays awake (disablesleep 1)")
     }
 
+    @Test func stayAwakeRuleNotAllowedYet() {
+        let c = Table.closedCell(.battery, rule: .stayAwake(minutes: 60), batteryFloor: 15,
+                                 foreignDisableSleep: false, allowed: false)
+        #expect(c.text == "sleeps at once")
+        #expect(c.detail?.contains("Allow Lid to Turn Sleep Off…") == true)
+        #expect(Table.closedCell(.ac, rule: .sleep, batteryFloor: 15, foreignDisableSleep: false, allowed: false)
+            == Table.Cell(text: "sleeps at once", detail: nil, isDefault: true))
+    }
+
+    @Test func eachAwakeLineOnce() {
+        let siri = (1...3).map { Assertion(pid: $0, process: "Siri AI", type: "PreventUserIdleSystemSleep",
+                                           name: "UIIntelligenceSupport", timeoutSeconds: nil) }
+        #expect(Table.awakeLines(Assertions(byProcess: siri)) == ["Siri / Apple Intelligence"])
+    }
+
     @Test func idleCases() {
         func cell(_ sleep: Int, _ display: Int, _ source: PowerSource = .ac, rule: LidRule = .sleep) -> Table.Cell {
             let s = PowerSettings(sources: [source: SourceSettings(["sleep": "\(sleep)", "displaysleep": "\(display)"])])

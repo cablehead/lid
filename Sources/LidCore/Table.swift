@@ -74,7 +74,7 @@ public enum Table {
     }
 
     public static func closedCell(_ source: PowerSource, rule: LidRule, batteryFloor: Int,
-                                  foreignDisableSleep: Bool) -> Cell {
+                                  foreignDisableSleep: Bool, allowed: Bool = true) -> Cell {
         if foreignDisableSleep {
             return Cell(text: "stays awake (disablesleep 1)",
                         detail: "sleep is turned off for the whole Mac, not by Lid", isDefault: false)
@@ -82,6 +82,13 @@ public enum Table {
         let early = source == .battery
             ? "sleeps early if hot or battery under \(batteryFloor)%"
             : "sleeps early if hot"
+        // A stay-awake rule Lid may not carry out yet: the Mac sleeps at once.
+        if rule.staysAwake && !allowed {
+            return Cell(text: defaultClosedText,
+                        detail: "set to stay awake, but Lid isn't allowed to turn sleep off yet: "
+                            + "choose Allow Lid to Turn Sleep Off… in the menu",
+                        isDefault: false)
+        }
         switch rule {
         case .sleep:
             return Cell(text: defaultClosedText, detail: nil, isDefault: true)
@@ -110,7 +117,13 @@ public enum Table {
     /// assertions (display on, lid open) are left out: the table already says
     /// what they do. A known macOS service is named for what it is doing; any
     /// other process by its own name and the reason it gives.
+    /// Each line once: Siri, for one, holds several at a time.
     public static func awakeLines(_ assertions: Assertions) -> [String] {
+        var seen = Set<String>()
+        return awakeLinesAll(assertions).filter { seen.insert($0).inserted }
+    }
+
+    private static func awakeLinesAll(_ assertions: Assertions) -> [String] {
         assertions.keepingAwake.filter { $0.process != "powerd" }.map { a in
             let left = a.timeoutSeconds.map { ", \(minutes(max(1, ($0 + 59) / 60))) left" } ?? ""
             var name = a.name

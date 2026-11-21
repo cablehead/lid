@@ -219,7 +219,7 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
         // macOS's admin prompt no longer shows an app's own words, so say
         // first what the password is for.
         guard explainPermission() else { return }
-        message = Shell.admin(script, prompt: "Lid wants to add \(Sudoers.path).").map { "Not installed. \($0)" }
+        message = Shell.admin(script, prompt: "Lid wants to add \(Sudoers.path).").map { "Lid still can't turn sleep off. \($0)" }
         refresh()
     }
 

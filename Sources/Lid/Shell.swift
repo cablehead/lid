@@ -46,7 +46,7 @@ enum Shell {
         var error: NSDictionary?
         script.executeAndReturnError(&error)
         guard let error else { return nil }
-        if (error[NSAppleScript.errorNumber] as? Int) == -128 { return "Cancelled." }
+        if (error[NSAppleScript.errorNumber] as? Int) == -128 { return "You cancelled the password prompt." }
         return (error[NSAppleScript.errorMessage] as? String) ?? "Failed."
     }
 }
