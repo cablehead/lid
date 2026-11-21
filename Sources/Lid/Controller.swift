@@ -246,7 +246,7 @@ final class Controller: NSObject, ObservableObject {
         // stayed on screen after the pointer left. The label still reaches VoiceOver.
         guard label != shownLabel else { return }
         shownLabel = label
-        statusItem?.button?.image = ClamGlyph.image(filled: filled, label: label)
+        statusItem?.button?.image = LidGlyph.image(filled: filled, label: label)
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "", target: AnyObject? = nil) -> NSMenuItem {

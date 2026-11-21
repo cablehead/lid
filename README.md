@@ -14,7 +14,7 @@ Each cell is read from `pmset -g custom` (and Lid's own rules for a closed lid).
 
 Below the table, only when it applies: the countdown ("Closed 14:02 → sleeps 15:02") and apps keeping the Mac awake right now.
 
-The menu has Show Me…, Open at Login, Uninstall Lid… and Quit Lid. Open at Login is turned on the first time Lid.app runs; untick it to stop. The icon is a scallop shell: outlined when the Mac will sleep as usual, filled while Lid keeps it awake or will when the lid shuts.
+The menu has Show Me…, Open at Login, Uninstall Lid… and Quit Lid. Open at Login is turned on the first time Lid.app runs; untick it to stop. The icon is a closed laptop under a sun, like the app icon: the sun is outlined when the Mac will sleep as usual, and filled while Lid keeps it awake or will when the lid shuts.
 
 ## Build and run
 
