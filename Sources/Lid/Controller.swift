@@ -65,7 +65,6 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
         menu.addItem(.separator())
         if !readOnly { menu.addItem(permissionItem) }
         if !readOnly { menu.addItem(loginItem.menuItem) }
-        menu.addItem(item("Uninstall Lid…", #selector(uninstall)))
         menu.addItem(item("Quit Lid", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
         status.menu = menu
         statusItem = status
@@ -299,9 +298,11 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         guard menuItem === permissionItem else { return true }
         hasPermission = FileManager.default.fileExists(atPath: Sudoers.path)
-        menuItem.title = hasPermission ? "Allowed to Turn Sleep Off" : "Allow Lid to Turn Sleep Off…"
-        menuItem.state = hasPermission ? .on : .off
-        return !hasPermission
+        // Until Lid is allowed there is nothing to uninstall; once it is,
+        // taking the permission back is all that's left to do with it.
+        menuItem.title = hasPermission ? "Uninstall Lid…" : "Allow Lid to Turn Sleep Off…"
+        menuItem.action = hasPermission ? #selector(uninstall) : #selector(menuAllow)
+        return true
     }
 
     // MARK: Show me window
