@@ -24,14 +24,16 @@ To remove Lid, choose Uninstall Lid in the menu. It turns sleep back on, removes
 
 ## Password
 
-A Mac goes to sleep the moment its lid closes, unless sleep was turned off before that, and only an administrator can turn it off or on. Lid does this when nobody is at the keyboard: when your hour is up and the Mac should sleep in your bag, when it gets hot, or when you unplug it. There is no one there to type a password then. So the first time you choose to stay awake with the lid closed, Lid asks for your password once, and uses it to write `/etc/sudoers.d/lid`:
+Turning sleep off is one `pmset` command, run as an administrator. If Lid only ever kept your Mac awake, one password, once, would do. But Lid keeps it awake for as long as you chose, and then puts it to sleep. That second step comes later, with the lid closed and the Mac in your bag, and it takes an administrator too: `pmset -a disablesleep 0` to let the Mac sleep again, then `pmset sleepnow`. So do sleeping early when it gets hot or the battery runs low, and turning sleep off again the next time you open the lid.
+
+So that it doesn't need your password each time, Lid asks for it once, the first time you choose to stay awake with the lid closed. It uses it to write `/etc/sudoers.d/lid`, which lets Lid run those three commands, and only those, without one:
 
 ```
 # Written by Lid. Lets you run only these commands as root, without a password.
 you ALL = (root) NOPASSWD: /usr/bin/pmset -a disablesleep 0, /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset sleepnow
 ```
 
-Those commands turn sleep off, turn it back on, and put the Mac to sleep now. Nothing else runs as root without asking. Uninstall Lid removes the file, or you can remove it yourself:
+Nothing else runs as root without asking. Uninstall Lid removes the file, or you can remove it yourself:
 
 ```sh
 sudo pmset -a disablesleep 0; sudo rm /etc/sudoers.d/lid
