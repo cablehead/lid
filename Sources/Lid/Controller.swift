@@ -61,7 +61,7 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
 
         let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         let menu = NSMenu()
-        menu.addItem(item("Show Me…", #selector(menuShow)))
+        menu.addItem(item("Show Me", #selector(menuShow)))
         menu.addItem(.separator())
         if !readOnly { menu.addItem(permissionItem) }
         if !readOnly { menu.addItem(loginItem.menuItem) }
@@ -286,7 +286,7 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
         let commands = NSTextField(wrappingLabelWithString: Sudoers.commands.joined(separator: "\n"))
         commands.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
         commands.isSelectable = true
-        let undo = NSTextField(wrappingLabelWithString: "To remove the file, choose Uninstall Lid… in the menu.")
+        let undo = NSTextField(wrappingLabelWithString: "To remove the file, choose Uninstall Lid in the menu.")
         undo.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         undo.preferredMaxLayoutWidth = 240
         let stack = NSStackView(views: [commands, undo])
@@ -296,7 +296,7 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 0)
         stack.frame = NSRect(x: 0, y: 0, width: 260, height: stack.fittingSize.height)
         alert.accessoryView = stack
-        alert.addButton(withTitle: "Continue…")
+        alert.addButton(withTitle: "Continue")
         alert.addButton(withTitle: "Cancel")
         NSApp.activate()
         return alert.runModal() == .alertFirstButtonReturn
@@ -313,7 +313,7 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
         hasPermission = FileManager.default.fileExists(atPath: Sudoers.path)
         // Until Lid is allowed there is nothing to uninstall; once it is,
         // taking the permission back is all that's left to do with it.
-        menuItem.title = hasPermission ? "Uninstall Lid…" : "Allow Lid to Turn Sleep Off…"
+        menuItem.title = hasPermission ? "Uninstall Lid" : "Allow Lid to Turn Sleep Off"
         menuItem.action = hasPermission ? #selector(uninstall) : #selector(menuAllow)
         return true
     }

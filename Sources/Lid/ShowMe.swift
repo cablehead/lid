@@ -33,7 +33,7 @@ struct ShowMe: View {
                     Text("Lid can't keep your Mac awake with the lid closed until you allow it.")
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
-                    Button("Allow…") { controller.allow() }
+                    Button("Allow") { controller.allow() }
                 }
                 .padding(10)
                 .frame(maxWidth: Self.labelWidth + 2 * Self.cellWidth + 20, alignment: .leading)
@@ -243,18 +243,18 @@ struct CellChoices: View {
             HStack {
                 // Details opens beside the panel, so the panel never changes
                 // size and its button stays where it was.
-                Button("Details…") { details.toggle() }
+                Button("Details") { details.toggle() }
                     .popover(isPresented: $details, arrowEdge: .trailing) { detailsText }
                 Spacer()
                 if lidClosed && needsPermission {
-                    Button("Allow…") { controller.allow() }
+                    Button("Allow") { controller.allow() }
                         .keyboardShortcut(.defaultAction)
                 } else if lidClosed {
                     Button("Set") { controller.setRule(rule, for: source); done() }
                         .disabled(!range.contains(minutes))
                         .keyboardShortcut(.defaultAction)
                 } else {
-                    Button("Apply…") { controller.apply(goal); done() }
+                    Button("Apply") { controller.apply(goal); done() }
                         .disabled(!range.contains(minutes))
                         .keyboardShortcut(.defaultAction)
                 }

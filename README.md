@@ -14,7 +14,7 @@ Each cell is read from `pmset -g custom` (and Lid's own rules for a closed lid).
 
 Below the table, only when it applies: the countdown ("Closed 14:02 → sleeps 15:02") and apps keeping the Mac awake right now.
 
-The menu has Show Me…, Allow Lid to Turn Sleep Off…, Open at Login and Quit Lid. Allow Lid to Turn Sleep Off… first says what the password is for and that Uninstall Lid… takes it back, then shows the admin prompt that writes `/etc/sudoers.d/lid`; once it is there, the same item reads Uninstall Lid… instead. Uninstall Lid… turns sleep back on, removes that file and the login item, deletes Lid's settings, moves Lid.app to the Trash and quits. Open at Login is turned on the first time Lid.app runs; untick it to stop. The icon is a closed laptop under a sun, like the app icon: the sun is outlined when the Mac will sleep as usual, and filled while Lid keeps it awake or will when the lid shuts.
+The menu has Show Me, Allow Lid to Turn Sleep Off, Open at Login and Quit Lid. Allow Lid to Turn Sleep Off first says what the password is for and that Uninstall Lid takes it back, then shows the admin prompt that writes `/etc/sudoers.d/lid`; once it is there, the same item reads Uninstall Lid instead. Uninstall Lid turns sleep back on, removes that file and the login item, deletes Lid's settings, moves Lid.app to the Trash and quits. Open at Login is turned on the first time Lid.app runs; untick it to stop. The icon is a closed laptop under a sun, like the app icon: the sun is outlined when the Mac will sleep as usual, and filled while Lid keeps it awake or will when the lid shuts.
 
 ## Build and run
 
@@ -40,7 +40,7 @@ Lid listens for events (lid, power source, battery, heat). It does not poll. The
 
 ## One-time permission
 
-The lid rules run `pmset` as root without a password (a prompt in a bag helps nobody). Allow Lid to Turn Sleep Off… in the menu, or the Allow… button a lid-closed cell shows the first time you pick a stay-awake option, runs the admin prompt that writes it to `/etc/sudoers.d/lid` (your user name in place of `you`):
+The lid rules run `pmset` as root without a password (a prompt in a bag helps nobody). Allow Lid to Turn Sleep Off in the menu, or the Allow button a lid-closed cell shows the first time you pick a stay-awake option, runs the admin prompt that writes it to `/etc/sudoers.d/lid` (your user name in place of `you`):
 
 ```
 # Written by Lid. Lets you run only these commands as root, without a password.
