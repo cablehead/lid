@@ -21,7 +21,7 @@ struct ShowMe: View {
             // What Lid is, and the question the table answers.
             VStack(alignment: .leading, spacing: 4) {
                 Text("When does your Mac go to sleep?").font(.title3.weight(.semibold))
-                Text("When you stop using it, your Mac turns the display off after a while, and only then goes to sleep, unless an app is keeping it awake. Being plugged in, and closing the lid, change what happens, so this table has a box for each case: plugged in or on battery, lid open or closed. Click Change in a box to choose what happens there.")
+                Text("Each box says when your Mac goes to sleep. Click Change to pick something else.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
