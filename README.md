@@ -10,13 +10,13 @@ Download `Lid.dmg` from the [latest release](https://github.com/cablehead/lid/re
 
 Lid lives in the menu bar, as a closed laptop under a sun. The sun is filled while Lid is keeping your Mac awake, or will keep it awake when you close the lid.
 
-## See when your Mac sleeps
+## Show Me
 
 Click the sun and choose Show Me. Each box covers one case: plugged in or on battery, with the lid open or closed. A box that isn't at macOS's usual setting says "not macOS default".
 
 Below the boxes, Lid lists what is keeping your Mac awake right now, such as music playing, and when it will sleep if the lid is closed.
 
-## Keep it awake with the lid closed
+## Lid closed
 
 Click Change in a "lid closed" box and pick how long it stays awake before it sleeps, from a minute to a week. Plugged in, it can also stay awake until you open the lid again. The two "lid closed" boxes keep their own times, so it can stay awake for an hour plugged in and ten minutes on battery.
 
@@ -33,11 +33,11 @@ While Lid is keeping your Mac awake with the lid closed, it doesn't sleep when i
 
 Try it on a desk first, with a short time, before trusting it in a bag.
 
-## Change when it sleeps with the lid open
+## Lid open
 
 Click Change in a "lid open" box. Lid shows the command it will run, such as `sudo pmset -c sleep 0`, and macOS asks for your password to run it. Lid never sees or keeps that password.
 
-## Remove Lid
+## Uninstall
 
 Choose Uninstall Lid in the menu. It turns sleep back on, removes `/etc/sudoers.d/lid`, deletes Lid's settings, and moves Lid to the Trash. To do the same by hand:
 
