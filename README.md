@@ -1,8 +1,6 @@
 # Lid
 
-Lid keeps your Mac awake with the lid closed, for as long as you choose. A Mac normally goes to sleep the moment you close it. With Lid, it can keep running a download, a build or a call in your bag, for an hour say, and then sleep.
-
-It also shows when your Mac goes to sleep today, plugged in and on battery, and lets you change it.
+Lid lets you choose when your Mac goes to sleep, even with the lid closed. A Mac normally goes to sleep the moment you close it. With Lid, it can keep running a download, a build or a call in your bag, for an hour say, and then sleep.
 
 ![Lid's window: when this Mac goes to sleep, plugged in or on battery, with the lid open or closed](screenshots/show-me.png)
 
