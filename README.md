@@ -10,50 +10,42 @@ Download `Lid.dmg` from the [latest release](https://github.com/cablehead/lid/re
 
 Lid lives in the menu bar, as a closed laptop under a sun. The sun is filled while Lid is keeping your Mac awake, or will keep it awake when you close the lid.
 
-## Use
+## See when your Mac sleeps
 
-To see when your Mac goes to sleep, click the sun and choose Show Me. Each box covers one case: plugged in or on battery, with the lid open or closed. A box your Mac doesn't have at its usual setting says "not macOS default".
+Click the sun and choose Show Me. Each box covers one case: plugged in or on battery, with the lid open or closed. A box that isn't at macOS's usual setting says "not macOS default".
 
-To keep your Mac awake with the lid closed, click Change in a "lid closed" box and pick how long: an hour, say, then it sleeps. Plugged in, it can also stay awake until you open the lid again. The first time, Lid asks for your password once, for the reason under [Password](#password).
+Below the boxes, Lid lists what is keeping your Mac awake right now, such as music playing, and when it will sleep if the lid is closed.
 
-To change when your Mac sleeps with the lid open, click Change in a "lid open" box. Lid shows the command it will run, such as `sudo pmset -c sleep 0`, and macOS asks for your password to run it. Lid never sees or keeps your password.
+## Keep it awake with the lid closed
 
-Below the boxes, Lid says what is keeping your Mac awake right now, such as music playing, and when it will sleep if the lid is closed.
+Click Change in a "lid closed" box and pick how long it stays awake before it sleeps, from a minute to a week. Plugged in, it can also stay awake until you open the lid again. The two "lid closed" boxes keep their own times, so it can stay awake for an hour plugged in and ten minutes on battery.
 
-To remove Lid, choose Uninstall Lid in the menu. It turns sleep back on, removes the password file, deletes Lid's settings, and moves Lid to the Trash.
-
-## Password
-
-Lid asks for your password once, the first time you choose to stay awake with the lid closed. It uses it to write `/etc/sudoers.d/lid`, which lets Lid run these three commands as root without asking again:
+The first time, Lid asks for your password, once, and uses it to write `/etc/sudoers.d/lid`. That file lets Lid run three commands as root without asking again, and nothing else:
 
 ```
 # Written by Lid. Lets you run only these commands as root, without a password.
 you ALL = (root) NOPASSWD: /usr/bin/pmset -a disablesleep 0, /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset sleepnow
 ```
 
-Lid runs them on its own. When your time is up, with the lid closed, it turns sleep back on and puts the Mac to sleep. It does the same early if the Mac gets hot or the battery drops under 15%. When you open the lid again, it turns sleep off for the next time you close it.
+Lid runs them on its own, at moments nobody is there to type a password. It turns sleep off while the lid is open, so the Mac stays awake when you close it. When your time is up, it turns sleep back on and puts the Mac to sleep. It puts the Mac to sleep early if it gets hot or the battery drops under 15%; a Mac in a bag can get hot. If you plug in or unplug with the lid closed, the other box's time takes over, still counted from when you closed the lid.
 
-Nothing else runs as root without asking. Uninstall Lid removes the file, or you can remove it yourself:
+While Lid is keeping your Mac awake with the lid closed, it doesn't sleep when idle with the lid open either. The box says so.
+
+Try it on a desk first, with a short time, before trusting it in a bag.
+
+## Change when it sleeps with the lid open
+
+Click Change in a "lid open" box. Lid shows the command it will run, such as `sudo pmset -c sleep 0`, and macOS asks for your password to run it. Lid never sees or keeps that password.
+
+## Remove Lid
+
+Choose Uninstall Lid in the menu. It turns sleep back on, removes `/etc/sudoers.d/lid`, deletes Lid's settings, and moves Lid to the Trash. To do the same by hand:
 
 ```sh
 sudo pmset -a disablesleep 0; sudo rm /etc/sudoers.d/lid
 ```
 
-## When it sleeps anyway
-
-With the lid closed, Lid puts your Mac to sleep early if it gets hot, or if the battery drops under 15%. A Mac in a bag can get hot, so short times are safer.
-
-If you plug in or unplug with the lid closed, the new case's time takes over, still counted from when you closed the lid.
-
-While Lid is keeping your Mac awake with the lid closed, it doesn't go to sleep when idle with the lid open either. The box says so.
-
-If Lid crashes or is force quit while it has sleep turned off, sleep stays off until Lid starts again, or until you run:
-
-```sh
-sudo pmset -a disablesleep 0
-```
-
-Try it on a desk first, with a short time, before trusting it in a bag.
+If Lid crashes or is force quit while it has sleep turned off, sleep stays off until Lid starts again. The first half of that command turns it back on.
 
 ## Build
 
