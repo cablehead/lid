@@ -2,10 +2,7 @@
 
 A small macOS menu bar app with one window, Show Me: a table of what your Mac does about sleep.
 
-|            | lid open                        | lid closed                       |
-|------------|---------------------------------|----------------------------------|
-| plugged in | e.g. never sleeps (display on)  | e.g. sleeps at once              |
-| on battery | e.g. sleeps after 10 min idle   | e.g. stays awake 60 min, then sleeps |
+![Show Me: when this Mac goes to sleep, plugged in or on battery, lid open or closed](screenshots/show-me.png)
 
 Each cell is read from `pmset -g custom` (and Lid's own rules for a closed lid). Cells that differ from macOS's default are marked. Click a cell for its choices:
 
