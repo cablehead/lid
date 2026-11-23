@@ -1,6 +1,6 @@
 # Lid
 
-Lid lets you choose when your Mac goes to sleep, even with the lid closed. A Mac normally goes to sleep the moment you close it. With Lid, it can keep running a download, a build or a call in your bag, for an hour say, and then sleep.
+Lid lets you choose when your Mac goes to sleep, even with the lid closed. A Mac normally goes to sleep the moment you close it. With Lid, it can keep running a download, a build or a call in your bag, for an hour say, and then sleep. It also sleeps early if it gets hot or the battery runs low, so a Mac left on in a bag doesn't cook.
 
 ![Lid's window: when this Mac goes to sleep, plugged in or on battery, with the lid open or closed](screenshots/show-me.png)
 
@@ -36,6 +36,10 @@ Try it on a desk first, with a short time, before trusting it in a bag.
 ## Lid open
 
 Click Change in a "lid open" box. Lid shows the command it will run, such as `sudo pmset -c sleep 0`, and macOS asks for your password to run it. Lid never sees or keeps that password.
+
+## Amphetamine and caffeinate
+
+Amphetamine can keep a Mac awake with the lid closed too. Once the lid is closed, it doesn't watch for heat, and its users ask for that after finding their Mac hot in a bag. Lid sleeps the Mac when it gets hot, when the battery drops under 15%, or when your time is up. `caffeinate` keeps a Mac awake while it's open, but not with the lid closed on battery.
 
 ## Uninstall
 
