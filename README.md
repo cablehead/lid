@@ -24,7 +24,7 @@ To remove Lid, choose Uninstall Lid in the menu. It turns sleep back on, removes
 
 ## Password
 
-macOS sleeps the moment the lid closes unless sleep has been turned off beforehand, and turning it off takes root. So that Lid can turn sleep off and on by itself, with no password prompt in your bag, it asks for your password once to write `/etc/sudoers.d/lid`:
+A Mac goes to sleep the moment its lid closes, unless sleep was turned off before that, and only an administrator can turn it off or on. Lid does this when nobody is at the keyboard: when your hour is up and the Mac should sleep in your bag, when it gets hot, or when you unplug it. There is no one there to type a password then. So the first time you choose to stay awake with the lid closed, Lid asks for your password once, and uses it to write `/etc/sudoers.d/lid`:
 
 ```
 # Written by Lid. Lets you run only these commands as root, without a password.
