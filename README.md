@@ -24,7 +24,7 @@ To remove Lid, choose Uninstall Lid in the menu. It turns sleep back on, removes
 
 ## Password
 
-Turning sleep off is one `pmset` command, run as an administrator. If Lid only ever kept your Mac awake, one password, once, would do. But Lid keeps it awake for as long as you chose, and then puts it to sleep. That second step comes later, with the lid closed and the Mac in your bag, and it takes an administrator too: `pmset -a disablesleep 0` to let the Mac sleep again, then `pmset sleepnow`. So do sleeping early when it gets hot or the battery runs low, and turning sleep off again the next time you open the lid.
+Turning sleep off is one `pmset` command, run as an administrator. If Lid only ever kept your Mac awake, one password, once, would do. But Lid keeps it awake for as long as you chose, and then puts it to sleep. That second step comes later, with the lid closed and the Mac in your bag, and it takes an administrator too: `pmset -a disablesleep 0` to let the Mac sleep again, then `pmset sleepnow`. The same goes for sleeping early when it gets hot or the battery runs low, and for turning sleep off again the next time you open the lid.
 
 So that it doesn't need your password each time, Lid asks for it once, the first time you choose to stay awake with the lid closed. It uses it to write `/etc/sudoers.d/lid`, which lets Lid run those three commands, and only those, without one:
 
