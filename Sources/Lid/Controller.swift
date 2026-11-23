@@ -223,8 +223,10 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
     }
 
     /// Deleting an app runs nothing, so Lid's permission would outlive it.
-    /// This takes it back (sleep on, the sudoers file gone, no login item), then quits, so
-    /// the app can go to the Trash with nothing left behind.
+    /// This takes it back (sleep on, the sudoers file gone, no login item),
+    /// deletes Lid's settings, moves Lid.app to the Trash, and exits.
+    /// Moving its own bundle is safe here: the code is already in memory and
+    /// nothing after it reads from the bundle.
     @objc func uninstall() {
         guard !readOnly else { return }
         if FileManager.default.fileExists(atPath: Sudoers.path) {
@@ -235,7 +237,18 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
             }
         }
         loginItem.remove()
-        NSApp.terminate(nil)
+        // Quitting writes weDisabledSleep, so quit first, then delete the
+        // settings, then exit without terminate's second quit.
+        quit()
+        if let id = Bundle.main.bundleIdentifier {
+            defaults.removePersistentDomain(forName: id)
+            defaults.synchronize()
+        }
+        let app = Bundle.main.bundleURL
+        if app.pathExtension == "app" {
+            try? FileManager.default.trashItem(at: app, resultingItemURL: nil)
+        }
+        exit(0)
     }
 
     // MARK: Menu bar
