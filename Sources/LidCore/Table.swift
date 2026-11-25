@@ -99,7 +99,7 @@ public enum Table {
 
     /// The countdown bar, only while Lid keeps the Mac awake with the lid closed.
     public static func bar(_ guardian: LidGuard, timeZone: TimeZone = .current) -> [String]? {
-        guard case .awake(let closedAt, let deadline) = guardian.phase else { return nil }
+        guard case .awake(let closedAt, _, let deadline) = guardian.phase else { return nil }
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = timeZone

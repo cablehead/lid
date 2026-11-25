@@ -34,10 +34,11 @@ public enum LidRule: Equatable, Sendable {
 /// - Lid open: `disablesleep 1` is held exactly when the current power
 ///   source's rule is to stay awake (it must already be set when the lid
 ///   closes, or macOS sleeps at once).
-/// - Lid closed with a stay-awake rule: awake until `closedAt + minutes` of
-///   the current source's rule. When the power source changes, the new
-///   source's rule applies, still counted from the lid close; a `.sleep` rule
-///   or a time already past sleeps at once.
+/// - Lid closed with a stay-awake rule: awake until `since + minutes` of the
+///   current source's rule, where `since` is when the lid closed. When the
+///   power source changes, the new source's rule applies, counted afresh from
+///   the change: unplugging starts the battery's time, plugging in starts the
+///   plugged-in time. A `.sleep` rule sleeps at once.
 /// - Too hot (serious or critical), or on battery under the floor, while the
 ///   lid is closed: sleep.
 /// - Sleep means `disablesleep 0`, then `pmset sleepnow`. When the lid opens,
@@ -82,8 +83,10 @@ public struct LidGuard: Equatable, Sendable {
     public enum Phase: Equatable, Sendable {
         /// Lid open, or closed with Lid doing nothing (macOS's own behaviour).
         case idle
-        /// Lid closed and kept awake by Lid. `deadline` nil: no time limit.
-        case awake(closedAt: Date, deadline: Date?)
+        /// Lid closed and kept awake by Lid, counting the current source's
+        /// time from `since`: the close, or the last power change after it.
+        /// `deadline` nil: no time limit.
+        case awake(closedAt: Date, since: Date, deadline: Date?)
         /// Lid put the Mac to sleep with the lid closed.
         case stopped(StopReason)
     }
@@ -130,7 +133,7 @@ public struct LidGuard: Equatable, Sendable {
         case .setRule(let source, let rule):
             rules[source] = rule
             if !lidClosed { return holdForCurrentRule() }
-            if case .awake(let closedAt, _) = phase { return keepAwake(closedAt: closedAt, now: now) }
+            if case .awake(let closedAt, let since, _) = phase { return keepAwake(closedAt: closedAt, since: since, now: now) }
             return []
 
         case .quit:
@@ -145,7 +148,7 @@ public struct LidGuard: Equatable, Sendable {
             if closed {
                 // Lid only acts if it held sleep off; otherwise macOS sleeps.
                 guard sleepDisabled else { return [] }
-                return keepAwake(closedAt: now, now: now)
+                return keepAwake(closedAt: now, since: now, now: now)
             }
             let wasAwake = phase != .idle
             phase = .idle
@@ -155,7 +158,8 @@ public struct LidGuard: Equatable, Sendable {
             guard battery != onBattery else { return [] }
             onBattery = battery
             if !lidClosed { return holdForCurrentRule() }
-            if case .awake(let closedAt, _) = phase { return keepAwake(closedAt: closedAt, now: now) }
+            // The new source's time starts now.
+            if case .awake(let closedAt, _, _) = phase { return keepAwake(closedAt: closedAt, since: now, now: now) }
             return []
 
         case .battery(let percent):
@@ -167,7 +171,7 @@ public struct LidGuard: Equatable, Sendable {
             return checkSafety()
 
         case .timerFired:
-            guard case .awake(_, let deadline?) = phase else { return [] }
+            guard case .awake(_, _, let deadline?) = phase else { return [] }
             // A timer left from an earlier rule can be stale: trust the deadline.
             if deadline.timeIntervalSince(now) > 1 { return [] }
             return stop(.timeUp)
@@ -183,20 +187,20 @@ public struct LidGuard: Equatable, Sendable {
     }
 
     /// Lid closed, Lid holding sleep off: apply the current source's rule.
-    private mutating func keepAwake(closedAt: Date, now: Date) -> [Action] {
+    private mutating func keepAwake(closedAt: Date, since: Date, now: Date) -> [Action] {
         if tooHot { return stop(.hot) }
         if batteryLow { return stop(.batteryLow) }
         switch currentRule {
         case .sleep:
             return stop(.rule)
         case .stayAwake(nil):
-            phase = .awake(closedAt: closedAt, deadline: nil)
+            phase = .awake(closedAt: closedAt, since: since, deadline: nil)
             return [.cancelTimer]
         case .stayAwake(let minutes?):
-            let deadline = closedAt.addingTimeInterval(TimeInterval(minutes * 60))
+            let deadline = since.addingTimeInterval(TimeInterval(minutes * 60))
             let left = deadline.timeIntervalSince(now)
             if left <= 0 { return stop(.timeUp) }
-            phase = .awake(closedAt: closedAt, deadline: deadline)
+            phase = .awake(closedAt: closedAt, since: since, deadline: deadline)
             return [.startTimer(seconds: left)]
         }
     }

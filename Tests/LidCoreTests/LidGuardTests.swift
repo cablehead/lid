@@ -75,7 +75,7 @@ private let sleepActions: [LidGuard.Action] = [.cancelTimer, .disableSleep(false
         var r = Run()
         _ = r.g.start()
         #expect(r.send(.lid(closed: true), at: 1) == [.startTimer(seconds: 3600)])
-        #expect(r.g.phase == .awake(closedAt: r.at(1), deadline: r.at(61)))
+        #expect(r.g.phase == .awake(closedAt: r.at(1), since: r.at(1), deadline: r.at(61)))
         #expect(r.send(.timerFired, at: 61) == sleepActions)
         #expect(r.g.phase == .stopped(.timeUp))
         #expect(!r.g.sleepDisabled)
@@ -110,30 +110,33 @@ private let sleepActions: [LidGuard.Action] = [.cancelTimer, .disableSleep(false
         _ = r.g.start()
         _ = r.send(.lid(closed: true), at: 0)
         #expect(r.send(.power(onBattery: false), at: 20) == [.cancelTimer])
-        #expect(r.g.phase == .awake(closedAt: r.at(0), deadline: nil))
+        #expect(r.g.phase == .awake(closedAt: r.at(0), since: r.at(20), deadline: nil))
         #expect(r.send(.battery(percent: 5), at: 25) == [])  // plugged in: battery does not matter
-        #expect(r.send(.timerFired, at: 60) == [])  // stale battery timer
         _ = r.send(.battery(percent: 70), at: 26)
-        // Unplugged again: the battery rule, still counted from the close.
-        #expect(r.send(.power(onBattery: true), at: 30) == [.startTimer(seconds: 30 * 60)])
-        #expect(r.send(.timerFired, at: 60) == sleepActions)
+        // Unplugged again: a fresh battery hour, from the unplug.
+        #expect(r.send(.power(onBattery: true), at: 30) == [.startTimer(seconds: 60 * 60)])
+        #expect(r.send(.timerFired, at: 60) == [])  // stale timer from the first hour
+        #expect(r.send(.timerFired, at: 90) == sleepActions)
     }
 
     @Test func pluggedInRuleWithItsOwnTime() {
         var r = Run(ac: .stayAwake(minutes: 90))
         _ = r.g.start()
         _ = r.send(.lid(closed: true), at: 0)
-        #expect(r.send(.power(onBattery: false), at: 20) == [.startTimer(seconds: 70 * 60)])
+        #expect(r.send(.power(onBattery: false), at: 20) == [.startTimer(seconds: 90 * 60)])
         // The battery timer, set for minute 60, fires stale: ignored.
         #expect(r.send(.timerFired, at: 60) == [])
-        #expect(r.send(.timerFired, at: 90) == sleepActions)
+        #expect(r.send(.timerFired, at: 110) == sleepActions)
     }
 
-    @Test func pluggedInWhenItsTimeIsAlreadyUpSleeps() {
+    @Test func pluggedInStartsItsTimeFresh() {
+        // 20 minutes on battery would have used up a 15-minute plugged-in
+        // time counted from the close; counted from the plug-in, it has all 15.
         var r = Run(ac: .stayAwake(minutes: 15))
         _ = r.g.start()
         _ = r.send(.lid(closed: true), at: 0)
-        #expect(r.send(.power(onBattery: false), at: 20) == sleepActions)
+        #expect(r.send(.power(onBattery: false), at: 20) == [.startTimer(seconds: 15 * 60)])
+        #expect(r.send(.timerFired, at: 35) == sleepActions)
         #expect(r.g.phase == .stopped(.timeUp))
     }
 
@@ -145,11 +148,26 @@ private let sleepActions: [LidGuard.Action] = [.cancelTimer, .disableSleep(false
         #expect(r.g.phase == .stopped(.rule))
     }
 
-    @Test func lidClosedPluggedInThenUnpluggedPastTheBatteryTime() {
+    @Test func unpluggedLongAfterTheCloseGetsTheWholeBatteryHour() {
         var r = Run(ac: .stayAwake(minutes: nil), onBattery: false)
         _ = r.g.start()
         #expect(r.send(.lid(closed: true), at: 0) == [.cancelTimer])
-        #expect(r.send(.power(onBattery: true), at: 120) == sleepActions)
+        #expect(r.send(.power(onBattery: true), at: 120) == [.startTimer(seconds: 60 * 60)])
+        #expect(r.send(.timerFired, at: 180) == sleepActions)
+    }
+
+    @Test func movingBetweenChargersRestartsEachTime() {
+        // A day plugged in, an hour on battery: closed on power for 12 hours,
+        // unplugged for a 30-minute move, then plugged in again.
+        var r = Run(battery: .stayAwake(minutes: 60), ac: .stayAwake(minutes: 1440), onBattery: false)
+        _ = r.g.start()
+        #expect(r.send(.lid(closed: true), at: 0) == [.startTimer(seconds: 1440 * 60)])
+        #expect(r.send(.power(onBattery: true), at: 720) == [.startTimer(seconds: 60 * 60)])
+        #expect(r.g.phase == .awake(closedAt: r.at(0), since: r.at(720), deadline: r.at(780)))
+        #expect(r.send(.power(onBattery: false), at: 750) == [.startTimer(seconds: 1440 * 60)])
+        #expect(r.g.phase == .awake(closedAt: r.at(0), since: r.at(750), deadline: r.at(2190)))
+        #expect(r.send(.timerFired, at: 780) == [])  // the battery hour's timer, stale
+        #expect(r.send(.timerFired, at: 2190) == sleepActions)
     }
 
     @Test func unpluggedWithLowBatterySleeps() {
@@ -250,7 +268,7 @@ private let sleepActions: [LidGuard.Action] = [.cancelTimer, .disableSleep(false
         _ = r.send(.lid(closed: true))
         #expect(r.send(.lid(closed: true), at: 1) == [])
         #expect(r.send(.power(onBattery: true), at: 2) == [])
-        #expect(r.g.phase == .awake(closedAt: r.at(0), deadline: r.at(60)))
+        #expect(r.g.phase == .awake(closedAt: r.at(0), since: r.at(0), deadline: r.at(60)))
     }
 
     @Test func rulesStoreAndLoad() {

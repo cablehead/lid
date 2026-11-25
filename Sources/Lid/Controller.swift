@@ -257,7 +257,7 @@ final class Controller: NSObject, ObservableObject, NSMenuItemValidation {
         let (filled, label): (Bool, String) = switch guardian.phase {
         case .idle where guardian.sleepDisabled: (true, "Lid: stays awake when closed")
         case .idle: (false, "Lid")
-        case .awake(_, nil): (true, "Lid: closed, staying awake")
+        case .awake(_, _, nil): (true, "Lid: closed, staying awake")
         case .awake: (true, "Lid: closed, counting down")
         case .stopped: (false, "Lid: put the Mac to sleep")
         }

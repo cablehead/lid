@@ -27,7 +27,7 @@ The first time, Lid asks for your password, once, and uses it to write `/etc/sud
 you ALL = (root) NOPASSWD: /usr/bin/pmset -a disablesleep 0, /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset sleepnow
 ```
 
-Lid runs them on its own, at moments nobody is there to type a password. It turns sleep off while the lid is open, so the Mac stays awake when you close it. When your time is up, it turns sleep back on and puts the Mac to sleep. It puts the Mac to sleep early if it gets hot or the battery drops under 15%; a Mac in a bag can get hot. If you plug in or unplug with the lid closed, the other box's time takes over, still counted from when you closed the lid.
+Lid runs them on its own, at moments nobody is there to type a password. It turns sleep off while the lid is open, so the Mac stays awake when you close it. When your time is up, it turns sleep back on and puts the Mac to sleep. It puts the Mac to sleep early if it gets hot or the battery drops under 15%; a Mac in a bag can get hot. If you plug in or unplug with the lid closed, the other box's time takes over, counted from that moment: unplug and the battery's time starts, plug in again and the plugged-in time starts over.
 
 While Lid is keeping your Mac awake with the lid closed, it doesn't sleep when idle with the lid open either. The box says so.
 
